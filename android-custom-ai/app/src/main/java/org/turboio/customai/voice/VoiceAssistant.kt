@@ -71,6 +71,9 @@ class VoiceAssistant(
     private val answer: suspend (String) -> String,
     private val settings: () -> VoiceSettings,
     private val canBegin: () -> Boolean = { true },
+    /** Reads the answer aloud (earphones); [stopSpeaking] interrupts it when a new turn starts or the user closes. */
+    private val speak: (String) -> Unit = {},
+    private val stopSpeaking: () -> Unit = {},
 ) : BusinessListener {
     private val _state = MutableStateFlow(VoiceState())
     val state: StateFlow<VoiceState> = _state
@@ -114,7 +117,7 @@ class VoiceAssistant(
                 DiagnosticLog.i("VOZ", "óculos ofereceram nova rodada")
                 begin(followup = true)
             }
-            8 -> { DiagnosticLog.i("VOZ", "usuário encerrou nos óculos"); endRound("Encerrado nos óculos", sendExit = false) }
+            8 -> { DiagnosticLog.i("VOZ", "usuário encerrou nos óculos"); stopSpeaking(); endRound("Encerrado nos óculos", sendExit = false) }
             3 -> audio(envelope.binary)
         }
     }
@@ -136,6 +139,7 @@ class VoiceAssistant(
         val token = ++epoch
         job?.cancel()
         speech?.cancel()
+        stopSpeaking()
         if (!followup) { displayDeadline?.cancel(); displayDeadline = null }
         followupEligible = false
         sid = newSid(random)
@@ -218,7 +222,7 @@ class VoiceAssistant(
         val reply = preset ?: try { answer(question) } catch (e: Exception) {
             if (token == epoch) {
                 val reason = e.message ?: "Falha na IA"
-                sendAnswer(token, "Erro: ${reason.take(80)}", question)
+                sendAnswer(token, "Lỗi: ${reason.take(80)}", question)
                 endRound(reason, sendExit = true, error = true, afterMs = 6000)
             }
             return
@@ -226,9 +230,10 @@ class VoiceAssistant(
         if (token != epoch) return
         val s = settings()
         val clean = DisplayText.clean(reply, s.stripAccents)
-        val clipped = if (clean.length > 600) clean.take(560).trimEnd() + "… (resposta completa no celular)" else clean
+        val clipped = if (clean.length > 600) clean.take(560).trimEnd() + "… (xem đầy đủ trên điện thoại)" else clean
         update { it.copy(answer = clean, note = "Exibindo resposta nos óculos") }
         if (!sendAnswer(token, clipped, question)) return
+        speak(clean)
         update { it.copy(phase = "exibindo", rounds = it.rounds + 1, note = "Resposta enviada; encerra em ${displaySeconds(s, clipped)} s") }
         val linger = displaySeconds(s, clipped) * 1000L
         displayDeadline = scope.launch { delay(linger); if (token == epoch) endRound("Rodada concluída", sendExit = true) }
@@ -279,6 +284,7 @@ class VoiceAssistant(
     }
 
     companion object {
-        private val CLOSE = Regex("^(encerrar|encerra|fechar|fecha|sair|cancelar|cancela|tchau|pode fechar|obrigad[oa],? (pode )?fechar)[.!\\s]*$")
+        private val CLOSE = Regex("^(encerrar|encerra|fechar|fecha|sair|cancelar|cancela|tchau|pode fechar|obrigad[oa],? (pode )?fechar|" +
+            "thôi|thôi nhé|thôi được rồi|tắt|tắt đi|đóng|đóng lại|kết thúc|dừng|dừng lại|hủy|huỷ|tạm biệt|cảm ơn,? (tắt|đóng) đi|stop|cancel|bye)[.!\\s]*$")
     }
 }

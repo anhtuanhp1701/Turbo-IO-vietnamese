@@ -165,7 +165,8 @@ class TurboApp : Application() {
                 }
             }
         }
-        voice = VoiceAssistant(session, scope, random, ::speechInput, { q -> voiceAnswer(q) }, settings::voiceSettings, { !display.active && !probe.busy && !teleprompter.active })
+        voice = VoiceAssistant(session, scope, random, ::speechInput, { q -> voiceAnswer(q) }, settings::voiceSettings, { !display.active && !probe.busy && !teleprompter.active },
+            speak = { text -> speaker.speak(text) }, stopSpeaking = { speaker.stop() })
         var wasReady = false
         session.onStatus = { s ->
             _status.value = s
@@ -200,6 +201,11 @@ class TurboApp : Application() {
     }
 
     fun disconnect() { session.disconnect(); ConnectionService.stop(this) }
+
+    /** Reads answers aloud on the phone's audio output (Bluetooth earphones when connected). */
+    val speaker: org.turboio.customai.tts.Speaker by lazy {
+        org.turboio.customai.tts.Speaker(this, settings::ttsSettings, { settings.apiKey(ProviderKind.GEMINI) }, { settings.ttsOpenAiKey() })
+    }
 
     /** Journal (SQLite, opened lazily off the main thread) and the insight engine on top of it. */
     val sqlDb: AndroidSqlDb by lazy { AndroidSqlDb(this) }
@@ -254,12 +260,12 @@ class TurboApp : Application() {
     private suspend fun context(question: String, now: Long): String {
         val zone = java.time.ZoneId.systemDefault()
         val at = java.time.Instant.ofEpochMilli(now).atZone(zone)
-        val date = at.format(java.time.format.DateTimeFormatter.ofPattern("EEEE, d 'de' MMMM 'de' yyyy, HH:mm", java.util.Locale("pt", "BR")))
+        val date = at.format(java.time.format.DateTimeFormatter.ofPattern("EEEE, 'ngày' d/M/yyyy, HH:mm", java.util.Locale.forLanguageTag("vi-VN")))
         val city = settings.weatherCity.trim()
-        var out = "\n\nAgora: $date (fuso ${zone.id})." + if (city.isNotEmpty()) " Cidade do usuário: $city." else ""
+        var out = "\n\nBây giờ: $date (múi giờ ${zone.id})." + if (city.isNotEmpty()) " Thành phố của người dùng: $city." else ""
         if (city.isNotEmpty() && WEATHER_QUESTION.containsMatchIn(question.lowercase())) {
             val line = withContext(Dispatchers.IO) { kotlinx.coroutines.withTimeoutOrNull(6000) { runCatching { kotlinx.coroutines.runInterruptible { org.turboio.customai.device.OpenMeteo.forecastLine(city) } }.getOrNull() } }
-            if (line != null) { out += " $line Use esses dados para perguntas sobre o tempo."; DiagnosticLog.i("AI", "previsão do tempo anexada à pergunta") }
+            if (line != null) { out += " $line Dùng dữ liệu này cho câu hỏi về thời tiết."; DiagnosticLog.i("AI", "previsão do tempo anexada à pergunta") }
         }
         return out
     }
@@ -513,10 +519,10 @@ class TurboApp : Application() {
 
     companion object {
         private val HEARD = Regex("<pergunta>(.*?)</pergunta>", RegexOption.DOT_MATCHES_ALL)
-        private const val DIRECT_PROMPT = "A pergunta do usuário está no áudio anexo (português do Brasil). Primeiro escreva exatamente o que " +
-            "ele disse entre <pergunta> e </pergunta>; em seguida, responda à pergunta seguindo as instruções. Se não houver fala, " +
-            "escreva apenas <pergunta></pergunta>."
-        private val WEATHER_QUESTION = Regex("chuv|chover|temperatura|clima|previs|frio|calor|nublad|guarda-chuva|\\btempo (hoje|amanh|agora|para|em|no|na)")
+        private const val DIRECT_PROMPT = "Câu hỏi của người dùng nằm trong đoạn âm thanh đính kèm (thường là tiếng Việt, có thể là ngôn ngữ khác). " +
+            "Trước tiên, chép lại chính xác điều họ nói, đúng ngôn ngữ và đầy đủ dấu, giữa <pergunta> và </pergunta>; sau đó trả lời câu hỏi theo " +
+            "các hướng dẫn. Nếu không có lời nói, chỉ viết <pergunta></pergunta>."
+        private val WEATHER_QUESTION = Regex("thời tiết|thoi tiet|mưa|nhiệt độ|nắng|nóng|lạnh|bão|độ ẩm|mang ô|áo mưa|weather|rain|temperature|chuv|chover|temperatura|clima|previs|\\btempo (hoje|amanh|agora|para|em|no|na)")
         lateinit var instance: TurboApp; private set
         fun friendly(e: Throwable): String = when (e) {
             is AiException, is SttException -> e.message ?: "Erro"

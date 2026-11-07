@@ -16,13 +16,13 @@ import java.net.URL
 import java.util.Base64
 
 enum class SttEngine(val id: String, val label: String) {
-    PHONE_ANDROID("android", "Android nativo · microfone do telefone (sem chave)"),
-    GLASSES_OPENAI("openai", "Microfone dos óculos → OpenAI (Whisper / gpt-4o-transcribe)"),
-    GLASSES_GOOGLE("google", "Microfone dos óculos → Google Cloud Speech-to-Text"),
-    GLASSES_DEEPGRAM("deepgram", "Microfone dos óculos → Deepgram (usa a chave do ambiente)"),
-    GLASSES_GEMINI("gemini", "Microfone dos óculos → Gemini (usa a chave do Gemini da IA)"),
+    PHONE_ANDROID("android", "Mic điện thoại · nhận dạng của Android (không cần khóa)"),
+    GLASSES_OPENAI("openai", "Mic kính → OpenAI (Whisper / gpt-4o-transcribe)"),
+    GLASSES_GOOGLE("google", "Mic kính → Google Cloud Speech-to-Text"),
+    GLASSES_DEEPGRAM("deepgram", "Mic kính → Deepgram (dùng khóa ghi âm môi trường)"),
+    GLASSES_GEMINI("gemini", "Mic kính → Gemini chép lời (dùng khóa Gemini)"),
     /** The audio goes to the Gemini chat model, which transcribes and answers in one request. */
-    GLASSES_GEMINI_DIRECT("gemini_direct", "Microfone dos óculos → Gemini direto (ouve e responde numa chamada; mais rápido)");
+    GLASSES_GEMINI_DIRECT("gemini_direct", "Mic kính → Gemini trực tiếp (nghe và trả lời một lần; nhanh nhất – khuyên dùng)");
 
     val usesGlassesMic: Boolean get() = this != PHONE_ANDROID
     companion object { fun fromId(id: String?) = entries.firstOrNull { it.id == id } ?: PHONE_ANDROID }
@@ -30,7 +30,7 @@ enum class SttEngine(val id: String, val label: String) {
 
 data class SttConfig(
     val engine: SttEngine = SttEngine.PHONE_ANDROID,
-    val language: String = "pt-BR",
+    val language: String = "vi-VN",
     val openAiModel: String = "whisper-1",
     val openAiEndpoint: String = "https://api.openai.com/v1/audio/transcriptions",
     val silenceMs: Int = 1200,
@@ -102,7 +102,7 @@ class OpenAiTranscriber(private val config: SttConfig, private val apiKey: Strin
     }
 }
 
-/** Deepgram pre-recorded /v1/listen (Nova-3, pt-BR) with the utterance as WAV; same key as the ambient transcription. */
+/** Deepgram pre-recorded /v1/listen (Nova-3, configured language) with the utterance as WAV; same key as the ambient transcription. */
 class DeepgramSpeechTranscriber(private val config: SttConfig, private val apiKey: String, private val timeoutSeconds: Int = 30) : BatchTranscriber {
     override suspend fun transcribe(pcm: ByteArray): String {
         if (apiKey.isBlank()) throw SttException("Informe a chave da Deepgram (aba IA → Transcrição do ambiente)")
@@ -173,8 +173,9 @@ class GeminiSpeechTranscriber(private val config: SttConfig, private val apiKey:
     }
 
     companion object {
-        private const val PROMPT = "Transcreva exatamente o que é dito neste áudio (idioma: %s). Responda somente com a transcrição, sem comentários. " +
-            "Se não houver fala, responda com uma linha vazia."
+        private const val PROMPT = "Transcribe exactly what is said in this audio. Expected language: %s; if the speaker uses another " +
+            "language, transcribe it in that language with its proper script and diacritics. Reply with the transcript only, no comments. " +
+            "If there is no speech, reply with an empty line."
 
         fun parseGemini(body: String): String {
             val parts = JSONObject(body).optJSONArray("candidates")?.optJSONObject(0)?.optJSONObject("content")?.optJSONArray("parts") ?: return ""

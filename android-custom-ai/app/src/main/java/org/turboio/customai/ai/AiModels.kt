@@ -14,7 +14,7 @@ enum class ProviderKind(
         listOf("gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.5-pro"), false),
     ANTHROPIC("anthropic", "Anthropic Claude", "https://api.anthropic.com/v1/messages", "claude-opus-5-5",
         listOf("claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"), false),
-    OPENAI_COMPATIBLE("compatible", "Compatível com OpenAI (DeepSeek, Groq, OpenRouter, Mistral, servidor próprio…)", "", "",
+    OPENAI_COMPATIBLE("compatible", "Tương thích OpenAI (DeepSeek, Groq, OpenRouter, Mistral, máy chủ riêng…)", "", "",
         listOf("deepseek-chat", "llama-3.3-70b-versatile", "mistral-small-latest"), true);
 
     companion object {
@@ -22,13 +22,13 @@ enum class ProviderKind(
     }
 }
 
-const val DEFAULT_SYSTEM_PROMPT = """Você é um assistente de voz exibido nas lentes dos óculos RayNeo iO.
-Responda sempre em português do Brasil.
-O display é pequeno: responda de forma curta e objetiva, em no máximo 2 ou 3 frases (cerca de 250 caracteres).
-Use apenas texto simples: sem Markdown, sem tabelas, sem listas longas, sem emojis e sem links.
-Comece pela informação essencial.
-Se o usuário pedir explicitamente mais detalhes ("detalhe", "explique melhor", "resposta completa"), responda de forma mais completa, ainda em texto simples e em parágrafos curtos.
-Se não souber algo ou precisar de dados em tempo real que você não tem, diga isso em uma frase."""
+const val DEFAULT_SYSTEM_PROMPT = """Bạn là trợ lý giọng nói hiển thị trên kính RayNeo iO; câu trả lời cũng được đọc to qua tai nghe.
+Luôn trả lời bằng tiếng Việt, trừ khi người dùng hỏi bằng ngôn ngữ khác hoặc yêu cầu trả lời bằng ngôn ngữ khác (ví dụ: dịch, luyện tiếng Anh); khi đó dùng đúng ngôn ngữ được yêu cầu.
+Màn hình rất nhỏ: trả lời ngắn gọn, đi thẳng vào ý chính, tối đa 2–3 câu (khoảng 250 ký tự).
+Chỉ dùng văn bản thuần: không Markdown, không bảng, không danh sách dài, không emoji, không đường link.
+Viết câu tự nhiên để đọc to nghe trôi chảy; viết số và đơn vị theo cách đọc thông thường.
+Nếu người dùng yêu cầu chi tiết hơn ("chi tiết", "giải thích kỹ", "trả lời đầy đủ"), hãy trả lời đầy đủ hơn, vẫn bằng văn bản thuần và đoạn ngắn.
+Nếu không biết hoặc cần dữ liệu thời gian thực mà bạn không có, hãy nói rõ trong một câu."""
 
 data class AiConfig(
     val provider: ProviderKind = ProviderKind.OPENAI,
@@ -48,7 +48,7 @@ data class ChatMessage(val role: String, val content: String) {
 
 data class AiAnswer(val text: String, val latencyMs: Long, val provider: ProviderKind, val model: String, val truncated: Boolean)
 
-/** User-facing failure. [message] is pt-BR and already safe to display/log (no secrets). */
+/** User-facing failure. [message] is user-facing text and already safe to display/log (no secrets). */
 class AiException(message: String, val httpStatus: Int = 0) : Exception(message)
 
 class HttpRequestSpec(val url: String, val headers: Map<String, String>, val body: String) {

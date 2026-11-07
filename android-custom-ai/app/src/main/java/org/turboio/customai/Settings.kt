@@ -21,7 +21,7 @@ class SettingsRepository(context: Context) {
     val secrets = SecretStore(context)
 
     fun aiConfig(): AiConfig {
-        val provider = ProviderKind.fromId(prefs.getString("ai.provider", ProviderKind.OPENAI.id))
+        val provider = ProviderKind.fromId(prefs.getString("ai.provider", ProviderKind.GEMINI.id))
         return AiConfig(
             provider = provider,
             model = prefs.getString("ai.${provider.id}.model", null) ?: provider.defaultModel,
@@ -55,8 +55,8 @@ class SettingsRepository(context: Context) {
     fun setApiKey(provider: ProviderKind, key: String) = secrets.put("key.ai.${provider.id}", key.trim())
 
     fun sttConfig(): SttConfig = SttConfig(
-        engine = SttEngine.fromId(prefs.getString("stt.engine", SttEngine.PHONE_ANDROID.id)),
-        language = prefs.getString("stt.language", "pt-BR") ?: "pt-BR",
+        engine = SttEngine.fromId(prefs.getString("stt.engine", SttEngine.GLASSES_GEMINI_DIRECT.id)),
+        language = prefs.getString("stt.language", "vi-VN") ?: "vi-VN",
         openAiModel = prefs.getString("stt.openai.model", "whisper-1") ?: "whisper-1",
         openAiEndpoint = prefs.getString("stt.openai.endpoint", "https://api.openai.com/v1/audio/transcriptions")
             ?: "https://api.openai.com/v1/audio/transcriptions",
@@ -80,6 +80,25 @@ class SettingsRepository(context: Context) {
     }
     fun hasSttKey(engine: SttEngine): Boolean = secrets.has("key.stt.${engine.id}")
     fun setSttKey(engine: SttEngine, key: String) = secrets.put("key.stt.${engine.id}", key.trim())
+
+    fun ttsSettings(): org.turboio.customai.tts.TtsSettings = org.turboio.customai.tts.TtsSettings(
+        engine = org.turboio.customai.tts.TtsEngine.fromId(prefs.getString("tts.engine", null)),
+        geminiModel = prefs.getString("tts.gemini.model", null) ?: "gemini-3.8-flash-lite-tts",
+        geminiVoice = prefs.getString("tts.gemini.voice", null) ?: "Kore",
+        openAiModel = prefs.getString("tts.openai.model", null) ?: "gpt-4o-mini-tts",
+        openAiVoice = prefs.getString("tts.openai.voice", null) ?: "alloy",
+        rate = prefs.getFloat("tts.rate", 1.0f).coerceIn(0.5f, 2.0f),
+        defaultLanguage = sttConfig().language,
+    )
+
+    fun saveTts(s: org.turboio.customai.tts.TtsSettings) {
+        prefs.edit().putString("tts.engine", s.engine.id).putString("tts.gemini.model", s.geminiModel.trim())
+            .putString("tts.gemini.voice", s.geminiVoice).putString("tts.openai.model", s.openAiModel.trim())
+            .putString("tts.openai.voice", s.openAiVoice).putFloat("tts.rate", s.rate).apply()
+    }
+
+    /** Key for OpenAI speech: the OpenAI transcription key, else the OpenAI chat key. */
+    fun ttsOpenAiKey(): String = sttKey(SttEngine.GLASSES_OPENAI)
 
     fun voiceSettings(): VoiceSettings = VoiceSettings(
         enabled = prefs.getBoolean("voice.enabled", true),

@@ -102,8 +102,8 @@ class AmbientRecorder(private val app: TurboApp) {
     private fun transcriber(providerId: String): AmbientTranscriber {
         val s = app.settings.ambientSettings()
         return when (AmbientProvider.of(providerId)) {
-            AmbientProvider.DEEPGRAM -> DeepgramTranscriber(app.settings.deepgramKey())
-            AmbientProvider.OPENAI -> OpenAiAmbientTranscriber(app.settings.ambientOpenAiKey(), s.openAiModel)
+            AmbientProvider.DEEPGRAM -> DeepgramTranscriber(app.settings.deepgramKey(), language = app.settings.sttConfig().language.substringBefore('-'))
+            AmbientProvider.OPENAI -> OpenAiAmbientTranscriber(app.settings.ambientOpenAiKey(), s.openAiModel, language = app.settings.sttConfig().language.substringBefore('-'))
         }
     }
 

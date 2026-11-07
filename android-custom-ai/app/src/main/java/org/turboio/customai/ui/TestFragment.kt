@@ -38,7 +38,7 @@ class TestFragment : Fragment() {
         ui.header("Ferramentas", "Pergunte à IA e use o teleprompter")
         ui.section("Pergunta à IA")
         val g1 = ui.card()
-        question = g1.field("Digite uma pergunta em português", multiline = true)
+        question = g1.field("Nhập câu hỏi (tiếng Việt hoặc ngôn ngữ khác)", multiline = true)
         ask = g1.button("Executar consulta") { runQuery() }
         aiStatus = g1.text(size = 13f)
         ui.section("Resposta")
@@ -172,12 +172,14 @@ class TestFragment : Fragment() {
                 app.journalAnswer(q, org.turboio.customai.journal.EntrySource.TEXT)?.let { fromJournal ->
                     lastAnswer = fromJournal
                     answer.text = DisplayText.clean(fromJournal, app.settings.displaySettings().stripAccents)
+                    app.speaker.speak(fromJournal)
                     aiStatus.text = "✓ Respondido a partir do diário"; aiStatus.setTextColor(statusColor(true))
                     return@launch
                 }
                 val result = app.askAi(q)
                 lastAnswer = result.text
                 answer.text = DisplayText.clean(result.text, app.settings.displaySettings().stripAccents)
+                app.speaker.speak(result.text)
                 aiStatus.text = "✓ ${result.provider.label} · ${result.model} · ${result.latencyMs} ms · ${result.text.length} caracteres" +
                     if (result.truncated) " · resposta truncada pelo limite de tokens" else ""
                 aiStatus.setTextColor(statusColor(true))

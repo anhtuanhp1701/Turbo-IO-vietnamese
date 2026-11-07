@@ -93,14 +93,14 @@ class DeepgramTranscriber(private val apiKey: String, private val model: String 
  * gpt-4o-*-transcribe models return text only (one block spanning the chunk). No diarization.
  */
 class OpenAiAmbientTranscriber(private val apiKey: String, private val model: String = "gpt-4o-mini-transcribe",
-                               private val http: RawHttp = urlConnectionHttp) : AmbientTranscriber {
+                               private val http: RawHttp = urlConnectionHttp, private val language: String = "vi") : AmbientTranscriber {
     override suspend fun transcribe(oggOpus: ByteArray, audioMs: Long): ChunkTranscript {
         if (apiKey.isBlank()) throw TranscriptionException("Informe a chave da OpenAI", permanent = true)
         val verbose = model.startsWith("whisper")
         val boundary = "----turboio" + System.nanoTime()
         val body = ByteArrayOutputStream()
         fun field(k: String, v: String) = body.write("--$boundary\r\nContent-Disposition: form-data; name=\"$k\"\r\n\r\n$v\r\n".toByteArray())
-        field("model", model); field("language", "pt"); field("response_format", if (verbose) "verbose_json" else "json")
+        field("model", model); field("language", language); field("response_format", if (verbose) "verbose_json" else "json")
         body.write("--$boundary\r\nContent-Disposition: form-data; name=\"file\"; filename=\"trecho.ogg\"\r\nContent-Type: audio/ogg\r\n\r\n".toByteArray())
         body.write(oggOpus); body.write("\r\n--$boundary--\r\n".toByteArray())
         val (status, text) = call(http, "https://api.openai.com/v1/audio/transcriptions",

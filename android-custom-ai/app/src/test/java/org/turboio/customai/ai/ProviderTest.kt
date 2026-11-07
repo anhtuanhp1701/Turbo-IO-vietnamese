@@ -54,7 +54,7 @@ class ProviderTest {
         assertFalse(req.url.contains(key))
         val body = JSONObject(req.body)
         assertEquals("model", body.getJSONArray("contents").getJSONObject(1).getString("role"))
-        assertTrue(body.getJSONObject("systemInstruction").getJSONArray("parts").getJSONObject(0).getString("text").contains("português do Brasil"))
+        assertTrue(body.getJSONObject("systemInstruction").getJSONArray("parts").getJSONObject(0).getString("text").contains("tiếng Việt"))
         assertEquals(800, body.getJSONObject("generationConfig").getInt("maxOutputTokens"))
     }
 
@@ -65,7 +65,7 @@ class ProviderTest {
         assertEquals("2023-06-01", req.headers["anthropic-version"])
         val body = JSONObject(req.body)
         assertEquals("claude-opus-5-5", body.getString("model"))
-        assertTrue(body.getString("system").contains("português do Brasil"))
+        assertTrue(body.getString("system").contains("tiếng Việt"))
         assertEquals(3, body.getJSONArray("messages").length())
         assertEquals(800, body.getInt("max_tokens"))
     }

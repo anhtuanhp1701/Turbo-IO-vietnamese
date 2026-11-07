@@ -4,7 +4,8 @@ import java.text.Normalizer
 
 /** Converts model output into plain text that fits the small lens display. */
 object DisplayText {
-    private val DETAIL = Regex("\\b(detalh\\w*|explique melhor|explica melhor|resposta completa|mais detalhes|em detalhes)\\b", RegexOption.IGNORE_CASE)
+    private val DETAIL = Regex("\\b(detalh\\w*|explique melhor|explica melhor|resposta completa|mais detalhes|em detalhes|in detail|more detail\\w*)\\b|" +
+        "chi tiết|giải thích kỹ|giải thích rõ|nói rõ hơn|trả lời đầy đủ|đầy đủ hơn|cụ thể hơn", RegexOption.IGNORE_CASE)
 
     fun wantsDetail(question: String): Boolean = DETAIL.containsMatchIn(question)
 

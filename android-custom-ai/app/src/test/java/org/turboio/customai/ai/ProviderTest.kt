@@ -132,7 +132,7 @@ class ProviderTest {
         val transport = FakeTransport(body = """{"choices":[{"message":{"content":"tarde"}}]}""", delayMs = 7000)
         val started = System.currentTimeMillis()
         val e = runCatching { AiClient(transport).ask(AiConfig(ProviderKind.OPENAI, timeoutSeconds = 5), key, emptyList(), "Oi") }.exceptionOrNull()
-        assertTrue(e is AiException && e.message!!.contains("Thời gian chờ"))
+        assertTrue(e is AiException && e.message!!.contains("thời gian chờ"))
         assertTrue(System.currentTimeMillis() - started < 6900)
     }
 

@@ -146,7 +146,7 @@ class HardwareProbeTest {
         assertEquals(listOf("13/166", "15/20", "15/20"), port.trace())
         port.glasses(15, 21, """{"cmd":"life_log_switch_result","payload":{"value":0}}"""); runCurrent()
         advanceTimeBy(2000); runCurrent()
-        assertFalse(flag.value); assertTrue(probe.state.value.verdict.contains("confirmado"))
+        assertFalse(flag.value); assertTrue(probe.state.value.verdict.contains("(có xác nhận)"))
         assertFalse(probe.busy)
     }
 

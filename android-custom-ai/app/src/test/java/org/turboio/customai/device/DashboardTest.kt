@@ -89,7 +89,7 @@ class DashboardTest {
         val d = Dashboard(port, fixedRandom)
         refuse = true
         val r = async { d.showCard("Oi") }; drive()
-        assertTrue(r.await().contains("recusaram")); assertEquals(2, port.sent.size)
+        assertTrue(r.await().contains("từ chối")); assertEquals(2, port.sent.size)
         refuse = false
         config.getJSONArray("widgets_v2").put(JSONObject().put("id", DashboardWire.CARD_ID).put("type", "native"))
         val f = async { d.showCard("Oi") }; drive()

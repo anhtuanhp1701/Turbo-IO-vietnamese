@@ -94,7 +94,7 @@ class InterpreterFragment : Fragment() {
         val saved = app.settings.modelFor(s.provider)
         val key = if (app.settings.hasApiKey(s.provider)) "đã có khóa" else "CHƯA có khóa – lưu khóa ở tab AI"
         val tip = when (s.provider) {
-            ProviderKind.GEMINI -> "Gemini nghe trực tiếp âm thanh (nhanh, chính xác nhất). Gợi ý: gemini-2.5-flash (nhanh) hoặc gemini-2.5-pro (dịch hay hơn, chậm hơn)."
+            ProviderKind.GEMINI -> "Gemini nghe trực tiếp âm thanh (nhanh, chính xác nhất). Gợi ý: gemini-3.8-flash (dịch hay, khuyên dùng) hoặc gemini-3.5-flash-lite (nhanh, rẻ hơn)."
             else -> "Model này dịch bản chép lời; phần chép lời dùng OpenAI (nếu có khóa) hoặc Gemini."
         }
         modelHint.text = "${s.provider.label}: $key. Model ở tab AI: $saved.\n$tip"

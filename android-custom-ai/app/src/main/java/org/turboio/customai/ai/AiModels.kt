@@ -10,8 +10,8 @@ enum class ProviderKind(
 ) {
     OPENAI("openai", "OpenAI", "https://api.openai.com/v1/chat/completions", "gpt-5-mini",
         listOf("gpt-5-mini", "gpt-5", "gpt-4.1-mini", "gpt-4o-mini"), false),
-    GEMINI("gemini", "Google Gemini", "https://generativelanguage.googleapis.com/v1beta", "gemini-2.5-flash",
-        listOf("gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.5-pro"), false),
+    GEMINI("gemini", "Google Gemini", "https://generativelanguage.googleapis.com/v1beta", "gemini-3.8-flash",
+        listOf("gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-3.6-flash"), false),
     ANTHROPIC("anthropic", "Anthropic Claude", "https://api.anthropic.com/v1/messages", "claude-opus-5-5",
         listOf("claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"), false),
     OPENAI_COMPATIBLE("compatible", "Tương thích OpenAI (DeepSeek, Groq, OpenRouter, Mistral, máy chủ riêng…)", "", "",

@@ -37,6 +37,10 @@ class InterpreterFragment : Fragment() {
     private lateinit var model: TextInputEditText
     private lateinit var modelHint: TextView
     private lateinit var liveModel: TextInputEditText
+    private lateinit var sonioxKey: TextInputEditText
+    private lateinit var sonioxState: TextView
+    private lateinit var contextField: TextInputEditText
+    private lateinit var glossaryField: TextInputEditText
     private val micPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) startNow() else toast("Cần quyền micro để dùng mic điện thoại")
     }
@@ -53,7 +57,14 @@ class InterpreterFragment : Fragment() {
         val ge = ui.card()
         val engines = InterpreterEngine.entries.toList()
         ge.spinner(engines, engines.indexOf(s.engine), { it.label }) { save(s.copy(engine = it)) }
-        liveModel = ge.field("Model dịch trực tiếp (để trống = ${LiveWire.DEFAULT_MODEL})", s.liveModel)
+        sonioxKey = ge.field("Khóa Soniox (để trống = giữ khóa đã lưu)", password = true)
+        sonioxState = ge.hint(if (app.settings.sonioxKey().isNotBlank()) "Đã lưu khóa Soniox" else "Chưa có khóa Soniox – tạo ở console.soniox.com → API keys")
+        contextField = ge.field("Ngữ cảnh (bạn là ai, nói chuyện với ai, về việc gì)", s.contextText, multiline = true)
+        glossaryField = ge.field("Từ điển riêng – mỗi dòng: nguồn = đích (vd: 张总 = Giám đốc Trương)", s.glossary, multiline = true)
+        ge.switch("Dịch lại mỗi câu bằng Gemini theo ngữ cảnh (chuẩn hơn, chậm hơn ~1 giây khi đọc)", s.refine) { save(s.copy(refine = it)) }
+        ge.hint("Chuyên nghiệp: Soniox nghe và dịch 2 chiều liên tục, chữ dịch hiện trên kính khi người kia còn đang nói. Hết câu, Gemini dịch lại theo " +
+            "ngữ cảnh và từ điển của bạn rồi mới đọc ra loa/tai nghe. Giá Soniox khoảng 0,18 USD/giờ.")
+        liveModel = ge.field("Model Gemini Live Translate (chỉ cho chế độ Trực tiếp; để trống = ${LiveWire.DEFAULT_MODEL})", s.liveModel)
         ge.hint("Trực tiếp: giống phụ đề của app gốc – âm thanh được gửi liên tục, chữ dịch hiện ngay trên kính khi người kia còn đang nói " +
             "và giọng dịch phát gần như cùng lúc. Chỉ cần khóa Gemini. Nếu khóa của bạn chưa dùng được model này, app sẽ báo; khi đó chọn “Từng câu”.")
 
@@ -123,7 +134,10 @@ class InterpreterFragment : Fragment() {
     private fun startNow() {
         val chosen = model.text.toString().trim()
         val chosenLive = liveModel.text.toString().trim()
-        if (chosen != s.model || chosenLive != s.liveModel) save(s.copy(model = chosen, liveModel = chosenLive))
+        save(s.copy(model = chosen, liveModel = chosenLive, contextText = contextField.text.toString().trim(), glossary = glossaryField.text.toString()))
+        sonioxKey.text.toString().trim().takeIf { it.isNotEmpty() }?.let {
+            app.settings.setSonioxKey(it); sonioxKey.setText(""); sonioxState.text = "Đã lưu khóa Soniox"
+        }
         app.interpreter.start()?.let { toast(it) }
     }
 

@@ -54,9 +54,11 @@ object Languages {
 }
 
 enum class InterpreterEngine(val id: String, val label: String) {
+    SONIOX("soniox", "Chuyên nghiệp (Soniox + Gemini) – nhanh nhất, chuẩn nhất, có ngữ cảnh và từ điển riêng"),
     LIVE("live", "Trực tiếp (Gemini Live Translate) – dịch ngay khi đang nói, giọng tự nhiên"),
     SENTENCE("sentence", "Từng câu – chờ hết câu rồi dịch (dùng được mọi model)");
-    companion object { fun fromId(id: String?) = entries.firstOrNull { it.id == id } ?: LIVE }
+    val streaming: Boolean get() = this != SENTENCE
+    companion object { fun fromId(id: String?) = entries.firstOrNull { it.id == id } ?: SONIOX }
 }
 
 enum class InterpreterSource(val id: String, val label: String) {
@@ -66,11 +68,19 @@ enum class InterpreterSource(val id: String, val label: String) {
 }
 
 data class InterpreterSettings(
-    val engine: InterpreterEngine = InterpreterEngine.LIVE,
+    val engine: InterpreterEngine = InterpreterEngine.SONIOX,
+    val sonioxModel: String = "",
+    /** Who, where and about what: given to Soniox and to the Gemini re-translation. */
+    val contextText: String = "",
+    /** One entry per line: "nguồn = đích" (preferred translation) or a term to recognise. */
+    val glossary: String = "",
+    /** Re-translate each finished sentence with Gemini using the conversation context. */
+    val refine: Boolean = true,
+    val refineModel: String = "gemini-3.8-flash",
     /** Live engine model; empty = [LiveWire.DEFAULT_MODEL]. */
     val liveModel: String = "",
     val myLanguage: String = "vi-VN",
-    val partnerLanguage: String = "en-US",
+    val partnerLanguage: String = "zh-CN",
     val source: InterpreterSource = InterpreterSource.GLASSES,
     /** AI that hears/translates. Gemini hears the audio directly; other providers translate a transcript. */
     val provider: ProviderKind = ProviderKind.GEMINI,
@@ -180,7 +190,7 @@ class Interpreter(private val app: TurboApp) : FrameSink {
     private var worker: Job? = null
     @Volatile private var settings = InterpreterSettings()
     /** Live engine (streaming); null in sentence mode. */
-    @Volatile private var live: LiveInterpreter? = null
+    @Volatile private var live: StreamingInterpreter? = null
 
     val running: Boolean get() = source != null
 
@@ -191,8 +201,9 @@ class Interpreter(private val app: TurboApp) : FrameSink {
     @Synchronized fun start(): String? {
         if (running) return null
         val s = app.settings.interpreterSettings().also { settings = it }
-        val liveMode = s.engine == InterpreterEngine.LIVE
-        if (liveMode && !app.settings.hasApiKey(ProviderKind.GEMINI)) return "Chế độ trực tiếp cần khóa Gemini (tab AI)"
+        val liveMode = s.engine.streaming
+        if (s.engine == InterpreterEngine.LIVE && !app.settings.hasApiKey(ProviderKind.GEMINI)) return "Chế độ trực tiếp cần khóa Gemini (tab AI)"
+        if (s.engine == InterpreterEngine.SONIOX && app.settings.sonioxKey().isBlank()) return "Hãy nhập khóa Soniox (mục Chế độ dịch)"
         if (!liveMode && !app.settings.hasApiKey(s.provider)) return "Chưa có khóa API cho ${s.provider.label} (tab AI)"
         if (!liveMode && s.provider != ProviderKind.GEMINI && app.settings.sttKey(SttEngine.GLASSES_OPENAI).isEmpty() && !app.settings.hasApiKey(ProviderKind.GEMINI))
             return "Với ${s.provider.label}, cần thêm khóa OpenAI hoặc Gemini để chép lời"
@@ -217,7 +228,8 @@ class Interpreter(private val app: TurboApp) : FrameSink {
         val q = queue
         worker = app.scope.launch(Dispatchers.IO) { for (pcm in q) process(pcm) }
         if (liveMode) {
-            live = LiveInterpreter(app, s, app.settings.apiKey(ProviderKind.GEMINI), liveEvents).also { it.start() }
+            live = (if (s.engine == InterpreterEngine.SONIOX) SonioxInterpreter(app, s, app.settings.sonioxKey(), liveEvents)
+                else LiveInterpreter(app, s, app.settings.apiKey(ProviderKind.GEMINI), liveEvents)).also { it.start() }
             if (s.showOnLens && app.session.isReady) app.display.liveStart(app.settings.displaySettings())
         }
         source = src
@@ -276,16 +288,16 @@ class Interpreter(private val app: TurboApp) : FrameSink {
 
     @Synchronized override fun gap(reason: String) { segmenter.reset(); decoder.reset() }
 
-    private val liveEvents = object : LiveInterpreter.Events {
+    private val liveEvents = object : InterpreterEvents {
         override fun caption(fromMe: Boolean, heard: String, translation: String, final: Boolean) {
             val s = settings
-            if (s.showOnLens) app.display.liveText((if (fromMe) "➜ " else "") + LiveWire.tail(translation, 80), final)
+            if (s.showOnLens) app.display.liveText((if (fromMe) "➜ " else "") + LiveWire.tail(translation.ifBlank { heard }, 80), final)
             if (final) {
                 val line = InterpreterLine(System.currentTimeMillis(), fromMe, heard.ifBlank { "…" }, translation,
                     if (fromMe) s.myLanguage else s.partnerLanguage)
                 update { it.copy(lines = (it.lines + line).takeLast(60), note = "Đang nghe…") }
             } else {
-                update { it.copy(note = (if (fromMe) "Bạn ➜ " else "Đối phương ➜ ") + LiveWire.tail(translation, 70)) }
+                update { it.copy(note = (if (fromMe) "Bạn ➜ " else "Đối phương ➜ ") + LiveWire.tail(translation.ifBlank { heard }, 70)) }
             }
         }
         override fun note(text: String) = update { it.copy(note = text) }

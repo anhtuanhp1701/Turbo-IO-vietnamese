@@ -103,8 +103,13 @@ class SettingsRepository(context: Context) {
     fun interpreterSettings(): org.turboio.customai.translate.InterpreterSettings = org.turboio.customai.translate.InterpreterSettings(
         engine = org.turboio.customai.translate.InterpreterEngine.fromId(prefs.getString("interp.engine", null)),
         liveModel = prefs.getString("interp.liveModel", "") ?: "",
+        sonioxModel = prefs.getString("interp.sonioxModel", "") ?: "",
+        contextText = prefs.getString("interp.context", "") ?: "",
+        glossary = prefs.getString("interp.glossary", "") ?: "",
+        refine = prefs.getBoolean("interp.refine", true),
+        refineModel = prefs.getString("interp.refineModel", null) ?: "gemini-3.8-flash",
         myLanguage = prefs.getString("interp.my", null) ?: "vi-VN",
-        partnerLanguage = prefs.getString("interp.partner", null) ?: "en-US",
+        partnerLanguage = prefs.getString("interp.partner", null) ?: "zh-CN",
         source = org.turboio.customai.translate.InterpreterSource.fromId(prefs.getString("interp.source", null)),
         provider = ProviderKind.fromId(prefs.getString("interp.provider", ProviderKind.GEMINI.id)),
         model = prefs.getString("interp.model", "") ?: "",
@@ -115,7 +120,9 @@ class SettingsRepository(context: Context) {
     )
 
     fun saveInterpreter(s: org.turboio.customai.translate.InterpreterSettings) {
-        prefs.edit().putString("interp.engine", s.engine.id).putString("interp.liveModel", s.liveModel.trim()).putString("interp.my", s.myLanguage).putString("interp.partner", s.partnerLanguage).putString("interp.source", s.source.id)
+        prefs.edit().putString("interp.engine", s.engine.id).putString("interp.liveModel", s.liveModel.trim())
+            .putString("interp.sonioxModel", s.sonioxModel.trim()).putString("interp.context", s.contextText.take(4000))
+            .putString("interp.glossary", s.glossary.take(20000)).putBoolean("interp.refine", s.refine).putString("interp.refineModel", s.refineModel.trim()).putString("interp.my", s.myLanguage).putString("interp.partner", s.partnerLanguage).putString("interp.source", s.source.id)
             .putString("interp.provider", s.provider.id).putString("interp.model", s.model.trim()).putBoolean("interp.speakPartner", s.speakToPartner)
             .putBoolean("interp.speakMe", s.speakToMe).putBoolean("interp.lens", s.showOnLens).putInt("interp.silence", s.silenceMs).apply()
     }
@@ -286,6 +293,9 @@ class SettingsRepository(context: Context) {
     var nativeAlerts: Boolean
         get() = prefs.getBoolean("alerts.native", true)
         set(v) { prefs.edit().putBoolean("alerts.native", v).apply() }
+
+    fun sonioxKey(): String = secrets.get("key.soniox")
+    fun setSonioxKey(key: String) = secrets.put("key.soniox", key.trim())
 
     fun deepgramKey(): String = secrets.get("key.ambient.deepgram")
     fun hasDeepgramKey(): Boolean = secrets.has("key.ambient.deepgram")

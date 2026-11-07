@@ -208,14 +208,8 @@ class LiveInterpreter(
     private val context: Context,
     private val settings: InterpreterSettings,
     private val apiKey: String,
-    private val events: Events,
-) {
-    interface Events {
-        /** A caption while the sentence is still forming ([final] false) and once it is complete. */
-        fun caption(fromMe: Boolean, heard: String, translation: String, final: Boolean)
-        fun note(text: String)
-        fun failed(reason: String)
-    }
+    private val events: InterpreterEvents,
+) : StreamingInterpreter {
 
     private val client = OkHttpClient.Builder().pingInterval(20, TimeUnit.SECONDS).readTimeout(0, TimeUnit.MILLISECONDS).build()
     private val model = settings.liveModel.ifBlank { LiveWire.DEFAULT_MODEL }
@@ -230,9 +224,9 @@ class LiveInterpreter(
     private val pending = java.io.ByteArrayOutputStream()
 
     /** True while translated speech plays (and shortly after): the microphones then send silence, never our own voice. */
-    fun gated(graceMs: Long): Boolean = System.currentTimeMillis() < maxOf(ear.busyUntil, speaker.busyUntil) + graceMs
+    override fun gated(graceMs: Long): Boolean = System.currentTimeMillis() < maxOf(ear.busyUntil, speaker.busyUntil) + graceMs
 
-    fun start() {
+    override fun start() {
         running = true
         open(true); open(false)
         events.note("Đang kết nối Gemini Live Translate…")
@@ -292,7 +286,7 @@ class LiveInterpreter(
     }
 
     /** 16 kHz mono PCM16 from the microphone; sent in 100 ms pieces to both sessions. */
-    fun feed(pcm16k: ByteArray) {
+    override fun feed(pcm16k: ByteArray) {
         if (!running) return
         pending.write(pcm16k)
         while (pending.size() >= CHUNK) {
@@ -303,7 +297,7 @@ class LiveInterpreter(
         }
     }
 
-    fun stop() {
+    override fun stop() {
         running = false
         synchronized(sessions) { sessions.values.forEach { it.close() }; sessions.clear() }
         ear.release(); speaker.release()

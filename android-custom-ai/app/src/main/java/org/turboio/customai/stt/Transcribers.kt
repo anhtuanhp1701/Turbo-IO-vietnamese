@@ -79,7 +79,7 @@ class OpenAiTranscriber(private val config: SttConfig, private val apiKey: Strin
             body.write("--$boundary\r\nContent-Disposition: form-data; name=\"$name\"\r\n\r\n$value\r\n".toByteArray())
         }
         field("model", config.openAiModel)
-        field("language", config.language.substringBefore('-'))
+        if (config.language.isNotBlank()) field("language", config.language.substringBefore('-'))
         field("response_format", "json")
         body.write("--$boundary\r\nContent-Disposition: form-data; name=\"file\"; filename=\"fala.wav\"\r\nContent-Type: audio/wav\r\n\r\n".toByteArray())
         body.write(Wav.pcm16Mono(pcm)); body.write("\r\n--$boundary--\r\n".toByteArray())

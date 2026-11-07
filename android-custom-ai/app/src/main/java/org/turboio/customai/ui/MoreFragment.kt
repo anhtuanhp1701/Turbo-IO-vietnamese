@@ -15,6 +15,7 @@ class MoreFragment : Fragment() {
         val main = activity as? MainActivity
         ui.header("Mais", "Ferramentas, testes e diagnóstico")
         ui.section("Ferramentas")
+        ui.nav(R.drawable.ic_mic, "Phiên dịch 2 chiều", "Dịch tự động giữa bạn và người đối diện, hiện trên kính và đọc to") { main?.open(InterpreterFragment()) }
         ui.nav(R.drawable.ic_chat, "Perguntar à IA", "Pergunta escrita, resposta nas lentes") { main?.open(TestFragment()) }
         ui.nav(R.drawable.ic_prompter, "Teleprompter", "Roteiro colado ou de um arquivo .txt") { main?.open(TestFragment()) }
         ui.section("Testes e diagnóstico")

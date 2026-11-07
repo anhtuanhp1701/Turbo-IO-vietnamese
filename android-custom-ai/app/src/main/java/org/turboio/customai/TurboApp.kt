@@ -155,7 +155,10 @@ class TurboApp : Application() {
         probe.blocker = { if (ambient.usesGlasses) "A gravação do diário pelos óculos está ativa" else null }
         probe.addFinishedListener { if (settings.ambientSettings().glassesMenu) ambient.armGlassesMenu() }
         session.addBusinessListener { business, envelope ->
-            if (business == org.turboio.customai.protocol.Business.LAUNCHER || business == org.turboio.customai.protocol.Business.AI_ASSISTANT) ambient.onGlasses(business, envelope)
+            if (business == org.turboio.customai.protocol.Business.LAUNCHER || business == org.turboio.customai.protocol.Business.AI_ASSISTANT) {
+                ambient.onGlasses(business, envelope)
+                interpreter.onGlasses(business, envelope)
+            }
             // The glasses ask for the weather (15/19 current_weather_request / weather_request): answered with a fresh reading.
             if (business == org.turboio.customai.protocol.Business.LAUNCHER && envelope.type == 19 && settings.weatherOn) {
                 val cmd = runCatching { org.json.JSONObject(envelope.jsonText()).optString("cmd") }.getOrDefault("")
@@ -172,7 +175,7 @@ class TurboApp : Application() {
             _status.value = s
             val ready = s.phase == Phase.READY
             if (ready != wasReady) {
-                wasReady = ready; voice.connectionChanged(ready)
+                wasReady = ready; voice.connectionChanged(ready); interpreter.connectionChanged(ready)
                 if (ready) {
                     nativeNotifier.connectionChanged()
                     glassesSettings.syncTime()   // glasses clock, like the official app (15/5 sync_time)
@@ -201,6 +204,9 @@ class TurboApp : Application() {
     }
 
     fun disconnect() { session.disconnect(); ConnectionService.stop(this) }
+
+    /** Two-way interpreter (glasses or phone microphones → chosen AI → lenses, earphones and loudspeaker). */
+    val interpreter: org.turboio.customai.translate.Interpreter by lazy { org.turboio.customai.translate.Interpreter(this) }
 
     /** Reads answers aloud on the phone's audio output (Bluetooth earphones when connected). */
     val speaker: org.turboio.customai.tts.Speaker by lazy {

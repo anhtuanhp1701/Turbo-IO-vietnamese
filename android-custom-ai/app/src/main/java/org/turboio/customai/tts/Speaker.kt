@@ -176,18 +176,23 @@ class Speaker(
 
     val speaking: Boolean get() = job?.isActive == true
 
-    fun speak(text: String) {
-        val s = settings()
+    /**
+     * Reads [text]. By default it interrupts what is being read; with [queue] it waits for it instead (interpreter).
+     * [loudspeaker] plays cloud voices on the phone's own speaker even when earphones are connected, so the person
+     * in front of the wearer hears it. [language] is the voice language for sentences whose letters do not tell.
+     */
+    fun speak(text: String, queue: Boolean = false, loudspeaker: Boolean = false, language: String? = null) {
+        val s = settings().let { if (language != null) it.copy(defaultLanguage = language) else it }
         if (s.engine == TtsEngine.OFF || text.isBlank()) return
         val previous = job
         job = scope.launch {
-            previous?.cancelAndJoin()
+            if (queue) previous?.join() else previous?.cancelAndJoin()
             val focus = requestFocus()
             try {
                 val chunks = SpeechText.chunks(text, s.defaultLanguage)
                 if (chunks.isEmpty()) return@launch
                 val cloudOk = when (s.engine) {
-                    TtsEngine.GEMINI, TtsEngine.OPENAI -> runCatching { speakCloud(chunks, s) }.onFailure { e ->
+                    TtsEngine.GEMINI, TtsEngine.OPENAI -> runCatching { speakCloud(chunks, s, loudspeaker) }.onFailure { e ->
                         if (e is kotlinx.coroutines.CancellationException) throw e
                         lastNote = "Lỗi giọng cloud: ${e.message}; chuyển sang giọng điện thoại"
                         DiagnosticLog.w("TTS", lastNote)
@@ -198,9 +203,13 @@ class Speaker(
             } finally {
                 stopTrack()
                 abandonFocus(focus)
+                lastEndedAt = System.currentTimeMillis()
             }
         }
     }
+
+    /** End of the last speech, to ignore its echo in the microphones. */
+    @Volatile var lastEndedAt = 0L; private set
 
     fun stop() {
         job?.cancel(); job = null
@@ -210,7 +219,7 @@ class Speaker(
 
     // ---------------------------------------------------------------- cloud voices
 
-    private suspend fun speakCloud(chunks: List<SpeechChunk>, s: TtsSettings) {
+    private suspend fun speakCloud(chunks: List<SpeechChunk>, s: TtsSettings, loudspeaker: Boolean = false) {
         val started = System.currentTimeMillis()
         // Fetch the next piece while the current one plays, so long answers have no gaps.
         var next: Deferred<Pair<ByteArray, Int>>? = scope.async { synthesize(chunks[0], s) }
@@ -219,7 +228,7 @@ class Speaker(
                 val current = next!!.await()
                 next = if (i + 1 < chunks.size) scope.async { synthesize(chunks[i + 1], s) } else null
                 if (i == 0) DiagnosticLog.i("TTS", "${s.engine.id}: primeiro áudio em ${System.currentTimeMillis() - started} ms (${chunks.size} trechos)")
-                play(current.first, current.second)
+                play(current.first, current.second, loudspeaker)
             }
         } finally { next?.cancel() }
         lastNote = "Đã đọc bằng ${s.engine.label.substringBefore(" ·")}"
@@ -281,7 +290,7 @@ class Speaker(
         }
 
     /** Plays mono PCM16 and returns when it has been heard (or when cancelled). */
-    private suspend fun play(pcm: ByteArray, rate: Int) {
+    private suspend fun play(pcm: ByteArray, rate: Int, loudspeaker: Boolean = false) {
         if (pcm.isEmpty()) return
         val min = AudioTrack.getMinBufferSize(rate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT)
         val t = AudioTrack.Builder()
@@ -292,6 +301,8 @@ class Speaker(
             .setTransferMode(AudioTrack.MODE_STREAM)
             .build()
         track = t
+        if (loudspeaker) audio.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+            .firstOrNull { it.type == android.media.AudioDeviceInfo.TYPE_BUILTIN_SPEAKER }?.let { t.setPreferredDevice(it) }
         try {
             t.play()
             var off = 0

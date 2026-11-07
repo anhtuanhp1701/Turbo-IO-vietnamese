@@ -85,6 +85,9 @@ class HomeFragment : Fragment() {
             Tile(R.drawable.ic_mic, "Assistente de voz", if (voiceOn) "Ligado · $engine" else "Desligado", voiceOn) {
                 st.setVoiceEnabled(!voiceOn); render()
             },
+            Tile(R.drawable.ic_chat, "Phiên dịch 2 chiều", if (app.interpreter.running) "Đang dịch" else "Bắt đầu", app.interpreter.running) {
+                main()?.open(InterpreterFragment())
+            },
             Tile(R.drawable.ic_record, "Gravar o dia", if (rec) "Gravando" else "Parado", rec) { main()?.go(R.id.nav_memory) },
             Tile(R.drawable.ic_prompter, "Teleprompter", if (app.teleprompter.active) tp.phase.label.replaceFirstChar { it.uppercase() } else "Enviar roteiro",
                 app.teleprompter.active) { main()?.open(TestFragment()) },

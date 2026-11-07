@@ -100,6 +100,24 @@ class SettingsRepository(context: Context) {
     /** Key for OpenAI speech: the OpenAI transcription key, else the OpenAI chat key. */
     fun ttsOpenAiKey(): String = sttKey(SttEngine.GLASSES_OPENAI)
 
+    fun interpreterSettings(): org.turboio.customai.translate.InterpreterSettings = org.turboio.customai.translate.InterpreterSettings(
+        myLanguage = prefs.getString("interp.my", null) ?: "vi-VN",
+        partnerLanguage = prefs.getString("interp.partner", null) ?: "en-US",
+        source = org.turboio.customai.translate.InterpreterSource.fromId(prefs.getString("interp.source", null)),
+        provider = ProviderKind.fromId(prefs.getString("interp.provider", ProviderKind.GEMINI.id)),
+        model = prefs.getString("interp.model", "") ?: "",
+        speakToPartner = prefs.getBoolean("interp.speakPartner", true),
+        speakToMe = prefs.getBoolean("interp.speakMe", true),
+        showOnLens = prefs.getBoolean("interp.lens", true),
+        silenceMs = prefs.getInt("interp.silence", 800).coerceIn(400, 2000),
+    )
+
+    fun saveInterpreter(s: org.turboio.customai.translate.InterpreterSettings) {
+        prefs.edit().putString("interp.my", s.myLanguage).putString("interp.partner", s.partnerLanguage).putString("interp.source", s.source.id)
+            .putString("interp.provider", s.provider.id).putString("interp.model", s.model.trim()).putBoolean("interp.speakPartner", s.speakToPartner)
+            .putBoolean("interp.speakMe", s.speakToMe).putBoolean("interp.lens", s.showOnLens).putInt("interp.silence", s.silenceMs).apply()
+    }
+
     fun voiceSettings(): VoiceSettings = VoiceSettings(
         enabled = prefs.getBoolean("voice.enabled", true),
         stripAccents = prefs.getBoolean("display.stripAccents", false),

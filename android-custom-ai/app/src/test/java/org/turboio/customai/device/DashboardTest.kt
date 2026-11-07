@@ -100,7 +100,7 @@ class DashboardTest {
         val d = Dashboard(port, fixedRandom)
         var remembered: Boolean? = null
         val on = async { d.setSimpleMode(true) { remembered = it } }; drive()
-        assertTrue(on.await(), on.await().startsWith("Painel agora no tipo simples"))
+        assertTrue(on.await(), on.await().startsWith("Bảng điều khiển giờ ở kiểu đơn giản"))
         assertEquals(1, config.get("simple_mode"))                                                 // number stays a number
         assertEquals(false, remembered)
         assertEquals(listOf(3, 1), (0 until 2).map { config.getJSONArray("widgets").getInt(it) })
@@ -109,10 +109,10 @@ class DashboardTest {
         // Boolean form and a config without simple_mode.
         config = JSONObject("""{"simple_mode":true,"widgets_v2":[{"id":"todo","type":"native"}]}""")
         val off = async { d.setSimpleMode(false) }; drive()
-        assertTrue(off.await().startsWith("Painel agora no tipo completo")); assertEquals(false, config.get("simple_mode"))
+        assertTrue(off.await().startsWith("Bảng điều khiển giờ ở kiểu đầy đủ")); assertEquals(false, config.get("simple_mode"))
         config = JSONObject("""{"widgets_v2":[{"id":"todo","type":"native"}]}""")
         val unknown = async { d.setSimpleMode(true) }; drive()
-        assertTrue(unknown.await().contains("não informam"))
+        assertTrue(unknown.await().contains("không cho biết"))
     }
 
     @Test fun noReplyTimesOut() = runTest {
@@ -152,12 +152,12 @@ class DashboardTest {
         assertEquals(listOf("2"), snap.widgets.map { it.id }); assertEquals(false, snap.simple)
         assertTrue(snap.describe(), snap.describe().startsWith("1. To-do"))
         val on = async { d.setSimpleMode(true) }; drive()
-        assertTrue(on.await(), on.await().startsWith("Painel agora no tipo simples"))
+        assertTrue(on.await(), on.await().startsWith("Bảng điều khiển giờ ở kiểu đơn giản"))
         assertEquals(1, config.get("simple_mode")); assertEquals(2, config.getJSONArray("widgets").getInt(0))
         assertTrue(Business.contentAllowed(15, 18, DashboardWire.update(config)))
         // Native cards (official ids: 1 weather, 2 To-do, …): only the list changes.
         val cards = async { d.setWidgets(listOf(2, 1)) }; drive()
-        assertTrue(cards.await(), cards.await().startsWith("Painel com: To-do, Tempo"))
+        assertTrue(cards.await(), cards.await().startsWith("Bảng điều khiển gồm: To-do, Thời tiết"))
         assertEquals("[2,1]", config.getJSONArray("widgets").toString()); assertEquals(1, config.get("simple_mode"))
         val bad = async { d.setWidgets(listOf(7)) }; drive()
         assertEquals("Hãy chọn ít nhất một thẻ", bad.await())

@@ -84,7 +84,7 @@ class ProviderTest {
         val e = assertThrows(AiException::class.java) {
             ProviderCodec.parse(ProviderKind.OPENAI, HttpResult(200, """{"choices":[{"message":{"content":""},"finish_reason":"length"}]}"""))
         }
-        assertTrue(e.message!!.contains("Limite de tokens"))
+        assertTrue(e.message!!.contains("giới hạn token"))
         assertThrows(AiException::class.java) { ProviderCodec.parse(ProviderKind.GEMINI, HttpResult(200, """{"promptFeedback":{"blockReason":"SAFETY"}}""")) }
         assertThrows(AiException::class.java) { ProviderCodec.parse(ProviderKind.ANTHROPIC, HttpResult(200, "not json")) }
     }
@@ -96,7 +96,7 @@ class ProviderTest {
         assertTrue(e.message!!.contains("Khóa API không hợp lệ")); assertTrue(e.message!!.contains("HTTP 401"))
         assertFalse(e.message!!.contains("SECRET"))
         assertTrue(assertThrows(AiException::class.java) { ProviderCodec.parse(ProviderKind.ANTHROPIC, HttpResult(429, """{"type":"error","error":{"type":"rate_limit_error","message":"slow down"}}""")) }
-            .message!!.contains("cota"))
+            .message!!.contains("hạn mức"))
         assertTrue(assertThrows(AiException::class.java) { ProviderCodec.parse(ProviderKind.GEMINI, HttpResult(503, "<html>")) }.message!!.contains("HTTP 503"))
     }
 
@@ -139,7 +139,7 @@ class ProviderTest {
     @Test fun clientRejectsEmptyQuestionAndMissingKey() = runBlocking {
         val client = AiClient(FakeTransport())
         assertTrue(runCatching { client.ask(AiConfig(), key, emptyList(), "  ") }.exceptionOrNull() is AiException)
-        assertTrue(runCatching { client.ask(AiConfig(), "", emptyList(), "Oi") }.exceptionOrNull()!!.message!!.contains("chave"))
+        assertTrue(runCatching { client.ask(AiConfig(), "", emptyList(), "Oi") }.exceptionOrNull()!!.message!!.contains("khóa"))
     }
 
     @Test fun webSearchAddsTheProvidersSearchTool() {

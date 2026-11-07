@@ -123,7 +123,7 @@ class MemoryTest {
         val run = engine(llm, settings).process(listOf("2026-10-17"), at(11, 0))
         assertEquals(1, run.blocks); assertTrue(run.newItems.isEmpty()); assertEquals(1, llm.calls.size)
         assertEquals(listOf("Você: Isso ainda está acontecendo."), journal.day("2026-10-17").map { it.text })   // family talk not kept
-        assertTrue(store.blocks("2026-10-17").single().summary.contains("removida"))
+        assertTrue(store.blocks("2026-10-17").single().summary.contains("Đã xóa"))
     }
 
     @Test fun longConversationsAreSplitAndEarlierPartsAnalysedWhileItContinues() = runBlocking {

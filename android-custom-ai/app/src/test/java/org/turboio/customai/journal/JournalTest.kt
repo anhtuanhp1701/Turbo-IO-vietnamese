@@ -136,7 +136,7 @@ class JournalTest {
         assertEquals("ok na segunda", InsightEngine(store, llm, { "p" to "m" }).day("2026-10-16").insight.resumo)
         assertTrue(llm.calls[1].second.contains(InsightPrompts.RETRY))
         val broken = FakeLlm({ "sem json" })
-        assertTrue(InsightEngine(store, broken, { "p" to "m2" }).day("2026-10-16", force = true).insight.resumo.contains("không khả dụng"))
+        assertTrue(InsightEngine(store, broken, { "p" to "m2" }).day("2026-10-16", force = true).insight.resumo.contains("không phân tích được"))
     }
 
     @Test fun journalQueriesAreExcludedFromInsights() = runBlocking {

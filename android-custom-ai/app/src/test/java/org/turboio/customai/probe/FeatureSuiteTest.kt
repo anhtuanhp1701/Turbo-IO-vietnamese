@@ -71,7 +71,7 @@ class FeatureSuiteTest {
         val other = TrafficRecorder.describe(21, EnvelopeCodec.encode(1, """{"title":"Banco","content":"código 123456"}"""))
         assertTrue(other.contains("đã ẩn nội dung")); assertFalse(other.contains("123456"))
         val card = TrafficRecorder.describe(21, EnvelopeCodec.encode(2, """{"notificationUID":"5","title":"Marina","content":"segredo"}"""))
-        assertFalse(card.contains("Marina")); assertFalse(card.contains("segredo")); assertTrue(card.contains("«7 caracteres»"))
+        assertFalse(card.contains("Marina")); assertFalse(card.contains("segredo")); assertTrue(card.contains("«7 ký tự»"))
         val uuid = "0a0b0c0d-0e0f-4011-8213-141516171819"
         val chunk = TrafficRecorder.describe(18, FileTransfer.encode(FileMessage(4, uuid, start = 0, size = 5, data = "texto".toByteArray())))
         assertEquals("18 arquivo tipo=4 id=0a0b0c0d-0e0f-4011-8213- pedaço=0 início=0 tamanho=5", chunk)

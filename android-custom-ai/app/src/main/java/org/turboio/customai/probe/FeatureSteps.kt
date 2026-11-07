@@ -181,14 +181,14 @@ object FeatureSteps {
             val current = snap?.simple ?: return@FeatureStep "Đọc: ${snap?.let { "os óculos não informam o tipo (simple_mode)" } ?: why}"
             val changed = app.dashboard.setSimpleMode(!current) { if (app.settings.dashboardSimpleOriginal == null) app.settings.dashboardSimpleOriginal = it }
             try {
-                run.countdown(25, "Xem bảng điều khiển: phải đang ở kiểu ${if (current) "đầy đủ" else "simples"}")
+                run.countdown(25, "Xem bảng điều khiển: phải đang ở kiểu ${if (current) "đầy đủ" else "đơn giản"}")
             } finally {
                 // Runs even when the step is stopped: the dashboard always goes back to the type it had.
                 val back = kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) { app.dashboard.setSimpleMode(current) }
                 if (back.startsWith("Bảng điều khiển giờ") || back.startsWith("Bảng điều khiển đã")) app.settings.dashboardSimpleOriginal = null
                 DiagnosticLog.i("PAINEL", "F16 volta: $back")
             }
-            "Kiểu đọc được: ${if (current) "simples" else "đầy đủ"}\nĐổi: $changed\nTrả về kiểu ban đầu: xem log (PAINEL)"
+            "Kiểu đọc được: ${if (current) "đơn giản" else "đầy đủ"}\nĐổi: $changed\nTrả về kiểu ban đầu: xem log (PAINEL)"
         },
         FeatureStep("F17", "Gật và lắc đầu",
             "Hai thẻ sẽ hiện trên kính. Thẻ đầu tiên: GẬT đầu (có). Thẻ thứ hai: LẮC đầu (không). Mỗi thẻ tối đa 40 giây.",

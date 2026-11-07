@@ -210,8 +210,8 @@ class GlassesSessionTest {
         session.send(13, EnvelopeCodec.encode(32, Commands.answerChunk("Olá!", "a".repeat(32), "oi", 1))) { results[2] = it }
         session.send(19, EnvelopeCodec.encode(5, "{\"x\":\"" + "y".repeat(600) + "\"}")) { results[3] = it } // > MTU
         scheduler.advance(1000)
-        assertTrue(results[0]!!.contains("não permitido"))
-        assertTrue(results[1]!!.contains("não permitido"))
+        assertTrue(results[0]!!.contains("không được phép"))
+        assertTrue(results[1]!!.contains("không được phép"))
         assertEquals(4, results.size)
         assertNull(results[2])
         assertTrue(results[3]!!.contains("MTU"))
@@ -227,7 +227,7 @@ class GlassesSessionTest {
         val results = ArrayList<String?>()
         session.sendFile(chunk) { results.add(it) }                                          // no lease: refused
         scheduler.advance(100)
-        assertTrue(results[0]!!.contains("fechado"))
+        assertTrue(results[0]!!.contains("đang đóng"))
         session.fileLease = { true }
         val request = org.turboio.customai.protocol.FileTransfer.encode(org.turboio.customai.protocol.FileMessage(3, uuid, chunkId = 0, start = 0, size = 10))
         session.sendFile(request) { results.add(it) }                                        // glasses-only type: refused

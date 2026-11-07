@@ -89,7 +89,7 @@ class HardwareProbeTest {
         assertEquals(0, report.getJSONObject("decode").getInt("failed"))
         assertTrue(report.getJSONObject("masks").getInt("vadAgreementPct") >= 85)
         assertTrue(report.getJSONObject("masks").getDouble("vpuMeanRms") > 10 * report.getJSONObject("masks").getDouble("nonVpuMeanRms"))
-        assertTrue(report.getString("verdict").contains("240 B decodificam"))
+        assertTrue(report.getString("verdict").contains("240 B giải mã được"))
         assertTrue(report.getJSONObject("jsonKeys").getJSONObject("13/163").has("vpuMask"))
         assertEquals(sink.analysis!!.pcm.size, 93 * 320 * 2 * 2)
     }
@@ -119,7 +119,7 @@ class HardwareProbeTest {
         assertEquals(1, report.getJSONObject("decode").getInt("channels"))
         assertEquals(3, c.getInt("bursts")); assertEquals(60, c.getInt("typicalFrameMs"))
         assertEquals(3 * 11 * 31 * 60L, c.getLong("audioDurationMs"))
-        assertTrue(c.getString("delivery").startsWith("lotes a cada ~20 s"))
+        assertTrue(c.getString("delivery").startsWith("gửi theo đợt mỗi ~20 giây"))
         assertTrue(report.getString("verdict").contains("60 ms"))
         assertEquals(3 * 11 * 31 * 960 * 2, sink.analysis!!.pcm.size)
         // Launcher context kept for diagnosis, with the Bluetooth address redacted.
@@ -132,7 +132,7 @@ class HardwareProbeTest {
         val probe = HardwareProbe(port, this, flag, fixedRandom, MemorySink(), clock = { testScheduler.currentTime })
         probe.startLifeLog(30); runCurrent()
         port.glasses(15, 21, """{"cmd":"life_log_switch_result","payload":{"value":2}}"""); runCurrent()
-        assertTrue(probe.state.value.events.any { it.contains("abra as hastes") })
+        assertTrue(probe.state.value.events.any { it.contains("mở gọng kính") })
         assertEquals(listOf("13/166", "15/20", "15/20"), port.trace().drop(2).take(3))
         advanceTimeBy(11_000); runCurrent()
         assertTrue(flag.value)                        // no OFF confirmation → stays pending

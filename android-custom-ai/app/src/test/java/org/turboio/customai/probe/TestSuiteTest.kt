@@ -53,7 +53,7 @@ class TestSuiteTest {
         val s = suite2.state.value
         assertTrue(s.finished); assertFalse(s.running)
         assertEquals(listOf("G1-G3", "G7", "G8", "G14", "G4", "G5"), s.results.map { it.id })
-        assertTrue(s.results.last().verdict.contains("confirmado")); assertEquals(1000L, s.startedAt)
+        assertTrue(s.results.last().verdict.contains("xác nhận")); assertEquals(1000L, s.startedAt)
         probe.stop(); advanceTimeBy(20_000); runCurrent()
     }
 

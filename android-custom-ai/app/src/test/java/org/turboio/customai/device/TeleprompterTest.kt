@@ -175,7 +175,7 @@ class TeleprompterTest {
     }
 
     @Test fun refusalCodesAreExplained() {
-        assertTrue(Teleprompter.refusal(18).contains("dobrados")); assertTrue(Teleprompter.refusal(9).contains("outro app"))
+        assertTrue(Teleprompter.refusal(18).contains("gập")); assertTrue(Teleprompter.refusal(9).contains("app khác"))
     }
 
     @Test fun glassesExitWithCodeEndsSession() = runTest {

@@ -91,7 +91,7 @@ object DashboardWire {
     }
 
     /** Numeric widget ids (official app 1.0.7 DashboardWidgetType). */
-    val NATIVE = linkedMapOf(1 to "Thời tiết", 2 to "To-do", 3 to "Lịch", 4 to "Thao tác", 5 to "E-mail", 6 to "Đồng hồ thế giới")
+    val NATIVE = linkedMapOf(1 to "Thời tiết", 2 to "To-do", 3 to "Lịch", 4 to "Cổ phiếu", 5 to "E-mail", 6 to "Đồng hồ thế giới")
     private val NATIVE_NAMES = NATIVE.mapKeys { it.key.toString() }
 
     /** Same configuration with the numeric widget list replaced (Strix OS 1.0.5.5 format); everything else kept. */
@@ -179,7 +179,7 @@ class Dashboard(private val port: GlassesPort, private val random: Randomness, p
         val simple get() = DashboardWire.simpleMode(config)
         val hasCard get() = widgets.any { it.id == DashboardWire.CARD_ID }
         fun describe(): String = widgets.mapIndexed { i, w -> "${i + 1}. ${w.name.ifBlank { "cartão ${w.id}" }} [${w.type}]" }.joinToString("\n").ifEmpty { "(không có thẻ)" } +
-            "\nKiểu: " + when (simple) { true -> "simples"; false -> "đầy đủ"; null -> "kính không cho biết" }
+            "\nKiểu: " + when (simple) { true -> "đơn giản"; false -> "đầy đủ"; null -> "kính không cho biết" }
     }
 
     private suspend fun readLocked(): Pair<Snapshot?, String> {
@@ -234,7 +234,7 @@ class Dashboard(private val port: GlassesPort, private val random: Randomness, p
     suspend fun setSimpleMode(on: Boolean, remember: (Boolean) -> Unit = {}): String = lock.withLock {
         val (before, why) = readLocked(); before ?: return@withLock why
         val current = before.simple ?: return@withLock "Kính không cho biết kiểu bảng điều khiển (simple_mode); không thay đổi gì"
-        if (current == on) return@withLock "Bảng điều khiển đã ở kiểu ${if (on) "simples" else "đầy đủ"}"
+        if (current == on) return@withLock "Bảng điều khiển đã ở kiểu ${if (on) "đơn giản" else "đầy đủ"}"
         remember(current)
         val (r, error) = request("dashboard_update", DashboardWire.update(DashboardWire.withSimpleMode(before.config, on)))
         if (error != null) return@withLock "Gửi thất bại: $error"
@@ -243,9 +243,9 @@ class Dashboard(private val port: GlassesPort, private val random: Randomness, p
         if (value != 0) return@withLock "Kính từ chối thay đổi (giá trị $value)"
         val (after, why2) = readLocked(); after ?: return@withLock "Đã nhận thay đổi nhưng đọc lại thất bại: $why2"
         val outcome = when {
-            after.simple != on -> "Kính đã nhận nhưng kiểu đọc lại vẫn là ${if (current) "simples" else "đầy đủ"}"
+            after.simple != on -> "Kính đã nhận nhưng kiểu đọc lại vẫn là ${if (current) "đơn giản" else "đầy đủ"}"
             !DashboardWire.preserves(before.config, after.config, ignoring = setOf("simple_mode")) -> "Đã đổi kiểu nhưng các mục khác trên bảng đã thay đổi; hãy kiểm tra trên kính"
-            else -> "Bảng điều khiển giờ ở kiểu ${if (on) "simples" else "đầy đủ"} (xem trên kính)"
+            else -> "Bảng điều khiển giờ ở kiểu ${if (on) "đơn giản" else "đầy đủ"} (xem trên kính)"
         }
         DiagnosticLog.i("PAINEL", outcome); outcome
     }

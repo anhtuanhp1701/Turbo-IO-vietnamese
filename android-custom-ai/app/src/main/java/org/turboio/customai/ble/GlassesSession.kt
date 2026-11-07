@@ -90,6 +90,8 @@ class GlassesSession(
     private val timers = ArrayList<Cancellable>()
     private var retryTimer: Cancellable? = null
     private var bondRequest: Cancellable? = null
+    /** Addresses that worked without a system bond in this session (bond dialog never completes on some phones). */
+    private val unbondedOk = HashSet<String>()
     private var retries = 0
     private var unauthenticatedTx = 0
     private var unauthenticatedRx = 0
@@ -320,13 +322,29 @@ class GlassesSession(
         val target = target ?: return
         phase(Phase.PAIRING, "Đã xác thực. Hãy xác nhận ghép đôi Bluetooth nếu Android hỏi…")
         if (bond.isBonded(target.address)) { initialize(token); return }
-        deadline(token, 60000, "system-pair-timeout")
+        // The glasses already talk over the authenticated GATT link at this point. Some phones (e.g. Honor MagicOS on
+        // Android 17) never show or finish the system pairing dialog, so a missing bond no longer ends the
+        // connection: after [UNBONDED_GRACE_MS] (or a refused bond) initialization continues without it.
+        stageDeadline?.cancel()
+        stageDeadline = scheduler.postDelayed(if (target.address in unbondedOk) UNBONDED_KNOWN_MS else UNBONDED_GRACE_MS) {
+            if (token == intent) continueUnbonded(token, "system-pair-timeout")
+        }
+        timers.add(stageDeadline!!)
         bondRequest = bond.ensureBond(target.address) { ok ->
             scheduler.post {
-                if (token != intent) return@post
-                if (ok) { clearTimers(); initialize(token) } else fail(token, "system-pair-failed")
+                if (token != intent || status.phase != Phase.PAIRING) return@post
+                if (ok) { clearTimers(); initialize(token) } else continueUnbonded(token, "system-pair-failed")
             }
         }
+    }
+
+    private fun continueUnbonded(token: Long, reason: String) {
+        if (token != intent || status.phase != Phase.PAIRING) return
+        DiagnosticLog.w(tag, "ghép đôi hệ thống không hoàn tất ($reason); tiếp tục qua kết nối BLE đã xác thực")
+        bondRequest?.cancel(); bondRequest = null
+        target?.address?.let { unbondedOk.add(it) }
+        clearTimers()
+        initialize(token)
     }
 
     private fun initialize(token: Long) {
@@ -537,6 +555,11 @@ class GlassesSession(
     }
 
     companion object {
+        /** Wait for the system pairing dialog before continuing without a bond (first time for an address). */
+        const val UNBONDED_GRACE_MS = 25_000L
+        /** Same address already worked without a bond in this app session: only a short wait. */
+        const val UNBONDED_KNOWN_MS = 3_000L
+
         fun describe(reason: String): String = when (reason) {
             "account-bound-peer" -> "Kính vẫn đang liên kết với tài khoản của app chính thức. Hãy hủy liên kết trong app RayNeo và đưa kính vào chế độ ghép đôi."
             "peer-mismatch", "peer-identifier-mismatch" -> "Danh tính kính không khớp với kính đã lưu. Đã ngắt kết nối để đảm bảo an toàn."

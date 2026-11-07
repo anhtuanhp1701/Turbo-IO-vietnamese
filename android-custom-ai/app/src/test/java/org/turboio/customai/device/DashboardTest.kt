@@ -72,15 +72,15 @@ class DashboardTest {
     @Test fun cardInstallVerifiedThenRemoved() = runTest {
         val d = Dashboard(port, fixedRandom)
         val show = async { d.showCard("3 pend · 15:00 Ligar") }; drive()
-        assertTrue(show.await(), show.await().startsWith("Cartão no painel"))
+        assertTrue(show.await(), show.await().startsWith("Thẻ trên bảng"))
         assertEquals(listOf("15/18", "15/18", "15/18"), port.trace())
         assertEquals(listOf("todo", "weather", DashboardWire.CARD_ID), DashboardWire.widgets(config)!!.map { it.id })
         val extras = JSONObject(DashboardWire.widgets(config)!!.let { config.getJSONArray("widgets_v2").getJSONObject(2).getString("extras") })
         assertEquals("3 pend · 15:00 Ligar", extras.getJSONObject("uiContent").getJSONObject("updateComponents").getJSONArray("components").getJSONObject(0).getString("text"))
         val again = async { d.showCard("2 pendências") }; drive()                                   // own card replaced
-        assertTrue(again.await().startsWith("Cartão no painel"))
+        assertTrue(again.await().startsWith("Thẻ trên bảng"))
         val remove = async { d.removeCard() }; drive()
-        assertTrue(remove.await(), remove.await().startsWith("Cartão removido"))
+        assertTrue(remove.await(), remove.await().startsWith("Đã gỡ thẻ"))
         assertEquals(listOf("todo", "weather"), DashboardWire.widgets(config)!!.map { it.id })
         assertTrue(runCatching { DashboardWire.install("x".repeat(21)) }.isFailure)
     }
@@ -93,7 +93,7 @@ class DashboardTest {
         refuse = false
         config.getJSONArray("widgets_v2").put(JSONObject().put("id", DashboardWire.CARD_ID).put("type", "native"))
         val f = async { d.showCard("Oi") }; drive()
-        assertTrue(f.await().contains("não é deste app")); assertEquals(3, port.sent.size)
+        assertTrue(f.await().contains("không thuộc app này")); assertEquals(3, port.sent.size)
     }
 
     @Test fun simpleModeFlippedKeepingTypeAndVerified() = runTest {
@@ -105,7 +105,7 @@ class DashboardTest {
         assertEquals(false, remembered)
         assertEquals(listOf(3, 1), (0 until 2).map { config.getJSONArray("widgets").getInt(it) })
         val same = async { d.setSimpleMode(true) }; drive()
-        assertTrue(same.await().startsWith("O painel já"))
+        assertTrue(same.await().startsWith("Bảng điều khiển đã"))
         // Boolean form and a config without simple_mode.
         config = JSONObject("""{"simple_mode":true,"widgets_v2":[{"id":"todo","type":"native"}]}""")
         val off = async { d.setSimpleMode(false) }; drive()
@@ -134,12 +134,12 @@ class DashboardTest {
         val zone = ZoneId.of("America/Sao_Paulo")
         val now = LocalDateTime.of(2026, 10, 17, 9, 0).atZone(zone).toInstant().toEpochMilli()
         val at15 = LocalDateTime.of(2026, 10, 17, 15, 0).atZone(zone).toInstant().toEpochMilli()
-        assertEquals("Sem pendências", DashboardWire.summary(0, null, "", now, zone))
-        assertEquals("1 pendência", DashboardWire.summary(1, null, "", now, zone))
-        assertEquals("3 pend · 15:00 Ligar", DashboardWire.summary(3, at15, "Ligar", now, zone))
+        assertEquals("Không có việc nào", DashboardWire.summary(0, null, "", now, zone))
+        assertEquals("1 việc", DashboardWire.summary(1, null, "", now, zone))
+        assertEquals("3 việc · 15:00 Ligar", DashboardWire.summary(3, at15, "Ligar", now, zone))
         val long = DashboardWire.summary(12, at15, "Ligar para a Marina sobre o contrato", now, zone)
-        assertTrue(long, long.length <= 20 && long.startsWith("12 pend · 15:00 ") && long.endsWith("…"))
-        assertEquals("4 pendências", DashboardWire.summary(4, at15 + 86_400_000L, "Amanhã", now, zone))
+        assertTrue(long, long.length <= 20 && long.startsWith("12 việc · 15:00 ") && long.endsWith("…"))
+        assertEquals("4 việc", DashboardWire.summary(4, at15 + 86_400_000L, "Amanhã", now, zone))
         DashboardWire.install(long)                                                                 // always installable
     }
 
@@ -160,6 +160,6 @@ class DashboardTest {
         assertTrue(cards.await(), cards.await().startsWith("Painel com: To-do, Tempo"))
         assertEquals("[2,1]", config.getJSONArray("widgets").toString()); assertEquals(1, config.get("simple_mode"))
         val bad = async { d.setWidgets(listOf(7)) }; drive()
-        assertEquals("Escolha pelo menos um cartão", bad.await())
+        assertEquals("Hãy chọn ít nhất một thẻ", bad.await())
     }
 }

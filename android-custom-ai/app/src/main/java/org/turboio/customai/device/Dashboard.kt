@@ -41,11 +41,11 @@ object DashboardWire {
 
     /** "3 pend · 15:00 Ligar…" (≤ 20 characters): open count and the next item due today. */
     fun summary(open: Int, nextDue: Long?, nextText: String, now: Long, zone: java.time.ZoneId = java.time.ZoneId.systemDefault()): String {
-        if (open == 0) return "Sem pendências"
+        if (open == 0) return "Không có việc nào"
         val today = java.time.Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
         val due = nextDue?.let { java.time.Instant.ofEpochMilli(it).atZone(zone) }
-        if (due == null || due.toLocalDate() != today) return if (open == 1) "1 pendência" else "$open pendências".take(CARD_MAX)
-        val head = "$open pend · %02d:%02d".format(due.hour, due.minute)
+        if (due == null || due.toLocalDate() != today) return if (open == 1) "1 việc" else "$open việc".take(CARD_MAX)
+        val head = "$open việc · %02d:%02d".format(due.hour, due.minute)
         val room = CARD_MAX - head.length - 1
         val word = nextText.trim().replace(Regex("\\s+"), " ")
         return if (room < 3 || word.isEmpty()) head else head + " " + (if (word.length <= room) word else word.take(room - 1).trimEnd() + "…")
@@ -91,7 +91,7 @@ object DashboardWire {
     }
 
     /** Numeric widget ids (official app 1.0.7 DashboardWidgetType). */
-    val NATIVE = linkedMapOf(1 to "Tempo", 2 to "To-do", 3 to "Agenda", 4 to "Ações", 5 to "E-mail", 6 to "Relógio mundial")
+    val NATIVE = linkedMapOf(1 to "Thời tiết", 2 to "To-do", 3 to "Lịch", 4 to "Thao tác", 5 to "E-mail", 6 to "Đồng hồ thế giới")
     private val NATIVE_NAMES = NATIVE.mapKeys { it.key.toString() }
 
     /** Same configuration with the numeric widget list replaced (Strix OS 1.0.5.5 format); everything else kept. */
@@ -138,7 +138,7 @@ object DashboardWire {
 }
 
 class Dashboard(private val port: GlassesPort, private val random: Randomness, private val timeoutMs: Long = 20_000) : BusinessListener {
-    companion object { const val NOT_SUPPORTED = "Estes óculos não aceitam cartões próprios no painel (firmware sem widgets_v2); nada foi enviado" }
+    companion object { const val NOT_SUPPORTED = "Kính này không nhận thẻ riêng trên bảng điều khiển (firmware không có widgets_v2); chưa gửi gì" }
     private val lock = Mutex()
     @Volatile private var pendingSeq = 0L
     @Volatile private var pendingCmd = ""
@@ -167,7 +167,7 @@ class Dashboard(private val port: GlassesPort, private val random: Randomness, p
         val waiter = CompletableDeferred<JSONObject>()
         reply = waiter; pendingSeq = seq; pendingCmd = cmd
         try {
-            val bytes = try { EnvelopeCodec.encode(18, json, seq, 1) } catch (e: Exception) { return null to "Mensagem inválida" }
+            val bytes = try { EnvelopeCodec.encode(18, json, seq, 1) } catch (e: Exception) { return null to "Tin nhắn không hợp lệ" }
             val error = suspendCancellableCoroutine<String?> { cont -> port.send(Business.LAUNCHER, bytes) { e -> if (cont.isActive) cont.resume(e) } }
             if (error != null) return null to error
             return withTimeoutOrNull(timeoutMs) { waiter.await() } to null
@@ -178,16 +178,16 @@ class Dashboard(private val port: GlassesPort, private val random: Randomness, p
         val widgets get() = DashboardWire.widgets(config).orEmpty()
         val simple get() = DashboardWire.simpleMode(config)
         val hasCard get() = widgets.any { it.id == DashboardWire.CARD_ID }
-        fun describe(): String = widgets.mapIndexed { i, w -> "${i + 1}. ${w.name.ifBlank { "cartão ${w.id}" }} [${w.type}]" }.joinToString("\n").ifEmpty { "(nenhum cartão)" } +
-            "\nTipo: " + when (simple) { true -> "simples"; false -> "completo"; null -> "não informado pelos óculos" }
+        fun describe(): String = widgets.mapIndexed { i, w -> "${i + 1}. ${w.name.ifBlank { "cartão ${w.id}" }} [${w.type}]" }.joinToString("\n").ifEmpty { "(không có thẻ)" } +
+            "\nKiểu: " + when (simple) { true -> "simples"; false -> "đầy đủ"; null -> "kính không cho biết" }
     }
 
     private suspend fun readLocked(): Pair<Snapshot?, String> {
-        if (!port.isReady) return null to "Conecte os óculos"
+        if (!port.isReady) return null to "Hãy kết nối kính"
         val (j, error) = request("dashboard_config", DashboardWire.QUERY)
-        if (error != null) return null to "Falha ao enviar: $error"
-        if (j == null) return null to "Os óculos não responderam à leitura do painel"
-        val c = DashboardWire.config(j) ?: return null to "Resposta do painel não reconhecida"
+        if (error != null) return null to "Gửi thất bại: $error"
+        if (j == null) return null to "Kính không phản hồi khi đọc bảng điều khiển"
+        val c = DashboardWire.config(j) ?: return null to "Không nhận ra phản hồi của bảng điều khiển"
         return Snapshot(c) to "lido"
     }
 
@@ -195,35 +195,35 @@ class Dashboard(private val port: GlassesPort, private val random: Randomness, p
 
     /** Installs (or replaces) our one text card; other cards are verified unchanged by reading back. */
     suspend fun showCard(text: String): String = lock.withLock {
-        val install = runCatching { DashboardWire.install(text) }.getOrElse { return@withLock "Texto do cartão: 1 a ${DashboardWire.CARD_MAX} caracteres" }
+        val install = runCatching { DashboardWire.install(text) }.getOrElse { return@withLock "Nội dung thẻ: 1 đến ${DashboardWire.CARD_MAX} ký tự" }
         val (before, why) = readLocked(); before ?: return@withLock why
         // Strix OS 1.0.5.5 lists numeric widgets only and never answered widget_install (feature test, 2026-10-17).
         if (!before.config.has("widgets_v2")) return@withLock NOT_SUPPORTED
-        before.widgets.firstOrNull { it.id == DashboardWire.CARD_ID }?.let { if (it.type != "a2ui") return@withLock "Já existe um cartão com o mesmo id que não é deste app; nada foi alterado" }
+        before.widgets.firstOrNull { it.id == DashboardWire.CARD_ID }?.let { if (it.type != "a2ui") return@withLock "Đã có một thẻ cùng id không thuộc app này; không thay đổi gì" }
         val (r, error) = request("widget_install", install)
-        if (error != null) return@withLock "Falha ao enviar: $error"
-        if (r == null) return@withLock "Sem resposta à instalação; confira o painel nos óculos (não foi repetido)"
-        if (r.optInt("code", -1) != 0) return@withLock "Os óculos recusaram o cartão (código ${r.opt("code")})"
-        val (after, why2) = readLocked(); after ?: return@withLock "Cartão aceito, mas a releitura falhou: $why2"
+        if (error != null) return@withLock "Gửi thất bại: $error"
+        if (r == null) return@withLock "Không có phản hồi khi cài thẻ; hãy xem bảng điều khiển trên kính (không gửi lại)"
+        if (r.optInt("code", -1) != 0) return@withLock "Kính từ chối thẻ (mã ${r.opt("code")})"
+        val (after, why2) = readLocked(); after ?: return@withLock "Thẻ đã được nhận nhưng đọc lại thất bại: $why2"
         val own = after.widgets.firstOrNull { it.id == DashboardWire.CARD_ID }
         val outcome = when {
-            own == null || own.type != "a2ui" -> "Cartão aceito, mas não aparece na releitura"
-            !DashboardWire.preserves(before.config, after.config) -> "Cartão instalado, mas outros itens do painel mudaram; confira nos óculos"
-            else -> "Cartão no painel e demais cartões preservados (confira nas lentes)"
+            own == null || own.type != "a2ui" -> "Thẻ đã được nhận nhưng không thấy khi đọc lại"
+            !DashboardWire.preserves(before.config, after.config) -> "Đã cài thẻ nhưng các mục khác trên bảng đã thay đổi; hãy kiểm tra trên kính"
+            else -> "Thẻ trên bảng, các thẻ khác được giữ nguyên (xem trên kính)"
         }
         DiagnosticLog.i("PAINEL", outcome); outcome
     }
 
     suspend fun removeCard(): String = lock.withLock {
         val (before, why) = readLocked(); before ?: return@withLock why
-        if (!before.hasCard) return@withLock "O cartão do app não está no painel"
+        if (!before.hasCard) return@withLock "Thẻ của app không có trên bảng"
         val (r, error) = request("widget_uninstall", DashboardWire.UNINSTALL)
-        if (error != null) return@withLock "Falha ao enviar: $error"
-        if (r == null) return@withLock "Sem resposta à remoção; confira o painel nos óculos"
-        if (r.optInt("code", -1) != 0) return@withLock "Os óculos recusaram a remoção (código ${r.opt("code")})"
-        val (after, why2) = readLocked(); after ?: return@withLock "Remoção aceita, mas a releitura falhou: $why2"
-        val outcome = if (!after.hasCard && DashboardWire.preserves(before.config, after.config)) "Cartão removido; demais cartões preservados"
-            else "Remoção aceita, mas a releitura não confere; confira nos óculos"
+        if (error != null) return@withLock "Gửi thất bại: $error"
+        if (r == null) return@withLock "Không có phản hồi khi gỡ thẻ; hãy xem bảng điều khiển trên kính"
+        if (r.optInt("code", -1) != 0) return@withLock "Kính từ chối gỡ thẻ (mã ${r.opt("code")})"
+        val (after, why2) = readLocked(); after ?: return@withLock "Đã nhận lệnh gỡ nhưng đọc lại thất bại: $why2"
+        val outcome = if (!after.hasCard && DashboardWire.preserves(before.config, after.config)) "Đã gỡ thẻ; các thẻ khác được giữ nguyên"
+            else "Đã nhận lệnh gỡ nhưng đọc lại không khớp; hãy kiểm tra trên kính"
         DiagnosticLog.i("PAINEL", outcome); outcome
     }
 
@@ -233,37 +233,37 @@ class Dashboard(private val port: GlassesPort, private val random: Randomness, p
      */
     suspend fun setSimpleMode(on: Boolean, remember: (Boolean) -> Unit = {}): String = lock.withLock {
         val (before, why) = readLocked(); before ?: return@withLock why
-        val current = before.simple ?: return@withLock "Os óculos não informam o tipo de painel (simple_mode); nada foi alterado"
-        if (current == on) return@withLock "O painel já está no tipo ${if (on) "simples" else "completo"}"
+        val current = before.simple ?: return@withLock "Kính không cho biết kiểu bảng điều khiển (simple_mode); không thay đổi gì"
+        if (current == on) return@withLock "Bảng điều khiển đã ở kiểu ${if (on) "simples" else "đầy đủ"}"
         remember(current)
         val (r, error) = request("dashboard_update", DashboardWire.update(DashboardWire.withSimpleMode(before.config, on)))
-        if (error != null) return@withLock "Falha ao enviar: $error"
-        if (r == null) return@withLock "Sem resposta à mudança; confira o painel nos óculos"
+        if (error != null) return@withLock "Gửi thất bại: $error"
+        if (r == null) return@withLock "Không có phản hồi khi đổi; hãy xem bảng điều khiển trên kính"
         val value = r.optJSONObject("payload")?.optInt("value", -1) ?: r.optInt("code", -1)
-        if (value != 0) return@withLock "Os óculos recusaram a mudança (valor $value)"
-        val (after, why2) = readLocked(); after ?: return@withLock "Mudança aceita, mas a releitura falhou: $why2"
+        if (value != 0) return@withLock "Kính từ chối thay đổi (giá trị $value)"
+        val (after, why2) = readLocked(); after ?: return@withLock "Đã nhận thay đổi nhưng đọc lại thất bại: $why2"
         val outcome = when {
-            after.simple != on -> "Os óculos aceitaram, mas o tipo lido continua ${if (current) "simples" else "completo"}"
-            !DashboardWire.preserves(before.config, after.config, ignoring = setOf("simple_mode")) -> "Tipo alterado, mas outros itens do painel mudaram; confira nos óculos"
-            else -> "Painel agora no tipo ${if (on) "simples" else "completo"} (confira nas lentes)"
+            after.simple != on -> "Kính đã nhận nhưng kiểu đọc lại vẫn là ${if (current) "simples" else "đầy đủ"}"
+            !DashboardWire.preserves(before.config, after.config, ignoring = setOf("simple_mode")) -> "Đã đổi kiểu nhưng các mục khác trên bảng đã thay đổi; hãy kiểm tra trên kính"
+            else -> "Bảng điều khiển giờ ở kiểu ${if (on) "simples" else "đầy đủ"} (xem trên kính)"
         }
         DiagnosticLog.i("PAINEL", outcome); outcome
     }
 
     /** Native cards shown on the dashboard, in this order (ids of [DashboardWire.NATIVE]); read back to verify. */
     suspend fun setWidgets(ids: List<Int>): String = lock.withLock {
-        if (ids.isEmpty() || ids.size > DashboardWire.NATIVE.size || ids.distinct() != ids || ids.any { it !in DashboardWire.NATIVE }) return@withLock "Escolha pelo menos um cartão"
+        if (ids.isEmpty() || ids.size > DashboardWire.NATIVE.size || ids.distinct() != ids || ids.any { it !in DashboardWire.NATIVE }) return@withLock "Hãy chọn ít nhất một thẻ"
         val (before, why) = readLocked(); before ?: return@withLock why
-        if (before.config.has("widgets_v2") || before.config.optJSONArray("widgets") == null) return@withLock "Estes óculos não usam a lista numérica de cartões; nada foi alterado"
+        if (before.config.has("widgets_v2") || before.config.optJSONArray("widgets") == null) return@withLock "Kính này không dùng danh sách thẻ dạng số; không thay đổi gì"
         val (r, error) = request("dashboard_update", DashboardWire.update(DashboardWire.withWidgets(before.config, ids)))
-        if (error != null) return@withLock "Falha ao enviar: $error"
-        if (r == null) return@withLock "Sem resposta à mudança; confira o painel nos óculos"
+        if (error != null) return@withLock "Gửi thất bại: $error"
+        if (r == null) return@withLock "Không có phản hồi khi đổi; hãy xem bảng điều khiển trên kính"
         val value = r.optJSONObject("payload")?.optInt("value", -1) ?: r.optInt("code", -1)
-        if (value != 0) return@withLock "Os óculos recusaram a mudança (valor $value)"
-        val (after, why2) = readLocked(); after ?: return@withLock "Mudança aceita, mas a releitura falhou: $why2"
+        if (value != 0) return@withLock "Kính từ chối thay đổi (giá trị $value)"
+        val (after, why2) = readLocked(); after ?: return@withLock "Đã nhận thay đổi nhưng đọc lại thất bại: $why2"
         val now = after.widgets.map { it.id }
-        val outcome = if (now == ids.map { it.toString() }) "Painel com: ${ids.joinToString(", ") { DashboardWire.NATIVE[it]!! }} (confira nas lentes)"
-            else "Os óculos aceitaram, mas a lista lida é ${now.joinToString(", ")}"
+        val outcome = if (now == ids.map { it.toString() }) "Bảng điều khiển gồm: ${ids.joinToString(", ") { DashboardWire.NATIVE[it]!! }} (xem trên kính)"
+            else "Kính đã nhận nhưng danh sách đọc lại là ${now.joinToString(", ")}"
         DiagnosticLog.i("PAINEL", outcome); outcome
     }
 }

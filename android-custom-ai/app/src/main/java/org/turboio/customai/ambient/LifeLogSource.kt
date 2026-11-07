@@ -102,7 +102,7 @@ class LifeLogSource(
         when (envelope.type) {
             161 -> if (running && !a2Sent) { if (anchorWall < 0) anchorWall = clock(); scope.launch { acceptTask() } }
             163, 164 -> if (running) audio(envelope)
-            165 -> if (running) ended("óculos encerraram o LifeLog")
+            165 -> if (running) ended("kính đã kết thúc LifeLog")
         }
     }
 
@@ -116,9 +116,9 @@ class LifeLogSource(
                 stopping = false; pending.set(false)
                 DiagnosticLog.i("AMBIENTE", "LifeLog desligado (confirmado pelos óculos)")
             }
-            running && cmd == "life_log_switch" && value == 0 -> { pending.set(false); ended("LifeLog desligado nos óculos") }
+            running && cmd == "life_log_switch" && value == 0 -> { pending.set(false); ended("LifeLog đã tắt trên kính") }
             running && !startedOnGlasses && cmd == "life_log_switch_result" && value != null && value != 0 ->
-                ended("óculos recusaram: ${LifeLogWire.SWITCH_ERRORS[value] ?: "código $value"}")
+                ended("kính từ chối: ${LifeLogWire.SWITCH_ERRORS[value] ?: "código $value"}")
         }
     }
 

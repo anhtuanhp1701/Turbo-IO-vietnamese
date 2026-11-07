@@ -149,7 +149,7 @@ class VoiceAndLensTest {
         val voice = assistant(port, glassesMic = true)
         port.glasses(13, 1); runCurrent()
         advanceTimeBy(6500); runCurrent()
-        assertTrue(voice.state.value.lastError.contains("Nenhum áudio"))
+        assertTrue(voice.state.value.lastError.contains("Không nhận được âm thanh"))
         assertEquals(listOf("13/2", "13/2", "13/7"), port.trace())
     }
 
@@ -159,7 +159,7 @@ class VoiceAndLensTest {
         port.glasses(13, 1); runCurrent()
         for (packet in opusPackets(speechMs = 0, silenceMs = 7400)) { port.glasses(13, 3, binary = packet); runCurrent() }
         advanceTimeBy(100); runCurrent()
-        assertTrue(voice.state.value.lastError.contains("Não ouvi"))
+        assertTrue(voice.state.value.lastError.contains("Không nghe thấy"))
         assertTrue(port.trace().none { it == "13/32" })
     }
 
@@ -180,7 +180,7 @@ class VoiceAndLensTest {
         val voice = assistant(port, glassesMic = true)
         port.glasses(13, 1); runCurrent()
         port.glasses(13, 8); runCurrent()
-        assertEquals("aguardando", voice.state.value.phase)
+        assertEquals("đang chờ", voice.state.value.phase)
         advanceTimeBy(10_000); runCurrent()
         assertEquals(listOf("13/2"), port.trace())     // nothing else sent after the user closed it
     }
@@ -290,7 +290,7 @@ class VoiceAndLensTest {
         var result: String? = null
         display.show("Olá", DisplaySettings()) { result = it }
         runCurrent(); advanceTimeBy(10_500); runCurrent()
-        assertTrue(result!!.contains("não confirmaram"))
+        assertTrue(result!!.contains("không xác nhận"))
         assertEquals(listOf("19/7", "19/3"), port.trace())
     }
 }

@@ -5,7 +5,7 @@ import org.turboio.customai.journal.SqlDb
 import org.turboio.customai.journal.searchNormalize
 
 enum class ItemKind(val id: String, val label: String) {
-    TASK("tarefa", "Tarefa"), COMMITMENT("compromisso", "Compromisso"), DECISION("decisao", "Decisão"), FOLLOW_UP("acompanhamento", "Acompanhar");
+    TASK("tarefa", "Việc cần làm"), COMMITMENT("compromisso", "Cam kết"), DECISION("decisao", "Quyết định"), FOLLOW_UP("acompanhamento", "Theo dõi");
     companion object { fun of(id: String?) = entries.firstOrNull { it.id == id?.trim()?.lowercase() } ?: TASK }
 }
 
@@ -14,14 +14,14 @@ enum class ItemStatus(val id: String) { OPEN("aberta"), DONE("feita"), DISMISSED
 
 /** What to do with a conversation category (approved: privacy filter). */
 enum class CategoryPolicy(val id: String, val label: String) {
-    INCLUDE("incluir", "Incluir"), IGNORE("ignorar", "Ignorar nos insights"), DELETE("apagar", "Não guardar");
+    INCLUDE("incluir", "Đưa vào"), IGNORE("ignorar", "Bỏ qua khi phân tích"), DELETE("apagar", "Không lưu");
     companion object { fun of(id: String?) = entries.firstOrNull { it.id == id } ?: INCLUDE }
 }
 
 object Categories {
     val ALL = listOf("trabalho", "familia", "pessoal", "saude", "financas", "compras", "lazer", "ruido", "outro")
-    val LABELS = mapOf("trabalho" to "Trabalho", "familia" to "Família", "pessoal" to "Pessoal", "saude" to "Saúde",
-        "financas" to "Finanças", "compras" to "Compras", "lazer" to "Lazer", "ruido" to "Ruído / sem conteúdo", "outro" to "Outros")
+    val LABELS = mapOf("trabalho" to "Công việc", "familia" to "Gia đình", "pessoal" to "Cá nhân", "saude" to "Sức khỏe",
+        "financas" to "Tài chính", "compras" to "Mua sắm", "lazer" to "Giải trí", "ruido" to "Tạp âm / không có nội dung", "outro" to "Khác")
     fun of(raw: String?): String = searchNormalize(raw ?: "").trim().let { c -> ALL.firstOrNull { it == c } ?: "outro" }
 }
 

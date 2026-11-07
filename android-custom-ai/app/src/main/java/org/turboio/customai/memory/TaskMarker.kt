@@ -17,10 +17,10 @@ object TaskMarker {
 
     fun instruction(now: Long, zone: ZoneId = ZoneId.systemDefault()): String {
         val stamp = Instant.ofEpochMilli(now).atZone(zone).format(DateTimeFormatter.ofPattern("EEEE, dd/MM/yyyy HH:mm", Locale.forLanguageTag("pt-BR")))
-        return "\n\nAgora: $stamp. Se o usuário pedir para lembrar, anotar, agendar ou não esquecer algo, ou disser algo que precisa " +
-            "fazer depois (ex.: “preciso comprar pão amanhã”), comece a resposta com UMA linha exatamente assim: " +
-            "[[TAREFA: verbo no infinitivo + objeto | QUANDO: AAAA-MM-DDTHH:MM ou vazio]] e depois confirme em uma frase curta. " +
-            "Use a data e hora atuais acima para calcular o prazo. Em qualquer outro caso, nunca use essa marcação."
+        return "\n\nBây giờ: $stamp. Nếu người dùng nhờ nhắc, ghi lại, lên lịch hoặc đừng quên điều gì, hoặc nói điều cần " +
+            "làm sau (vd: “mai tôi cần mua bánh mì”), hãy bắt đầu câu trả lời bằng MỘT dòng đúng như sau: " +
+            "[[TAREFA: động từ + đối tượng (viết bằng ngôn ngữ của người dùng) | QUANDO: AAAA-MM-DDTHH:MM hoặc để trống]] rồi xác nhận bằng một câu ngắn. " +
+            "Dùng ngày giờ hiện tại ở trên để tính hạn. Trong mọi trường hợp khác, không bao giờ dùng ký hiệu này."
     }
 
     fun find(answer: String): Found? {

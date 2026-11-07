@@ -18,7 +18,7 @@ class LiveProviderTest {
         live()
         val realKey = System.getenv(envKey).orEmpty()
         val key = realKey.ifEmpty { "invalid-key-for-turboio-test" }
-        val result = runCatching { AiClient().ask(AiConfig(kind, timeoutSeconds = 30), key, emptyList(), "Qual é a capital do Brasil? Responda em uma frase.") }
+        val result = runCatching { AiClient().ask(AiConfig(kind, timeoutSeconds = 30), key, emptyList(), "Thủ đô của Việt Nam là gì? Trả lời trong một câu.") }
         if (realKey.isEmpty()) {
             val e = result.exceptionOrNull()
             println("$kind (chave inválida) → ${e?.message}")

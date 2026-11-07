@@ -73,8 +73,8 @@ class FeatureSuite(
     /** Runs the current step; the result then waits for the user's verdict. */
     fun start(): String? {
         val s = _state.value
-        if (!s.active || s.phase != FeaturePhase.IDLE) return "A bateria não está aguardando uma etapa"
-        val step = current ?: return "Bateria concluída"
+        if (!s.active || s.phase != FeaturePhase.IDLE) return "Bộ kiểm tra không đang chờ bước nào"
+        val step = current ?: return "Đã hoàn tất bộ kiểm tra"
         stepStartedAt = clock()
         recorder.start()
         update(s.copy(phase = FeaturePhase.RUNNING, cue = "", outcome = ""))
@@ -88,11 +88,11 @@ class FeatureSuite(
         val id = ++runId
         job = scope.launch {
             val outcome = try {
-                withTimeoutOrNull(step.timeoutSeconds * 1000L) { step.run(run) } ?: "Tempo esgotado (${step.timeoutSeconds} s)"
+                withTimeoutOrNull(step.timeoutSeconds * 1000L) { step.run(run) } ?: "Hết thời gian (${step.timeoutSeconds} giây)"
             } catch (e: CancellationException) {
-                "Etapa interrompida pelo usuário"
+                "Người dùng đã dừng bước này"
             } catch (e: Exception) {
-                "Erro: ${e.message ?: e.javaClass.simpleName}"
+                "Lỗi: ${e.message ?: e.javaClass.simpleName}"
             }
             if (id == runId) finishRun(outcome)
         }
@@ -112,7 +112,7 @@ class FeatureSuite(
         val s = _state.value
         val step = current ?: return
         if (s.phase != FeaturePhase.VERDICT) return
-        val label = when (worked) { true -> "funcionou"; false -> "não funcionou"; null -> "não deu para avaliar" }
+        val label = when (worked) { true -> "funcionou"; false -> "không hoạt động"; null -> "không đánh giá được" }
         record(step, FeatureResult(step.id, step.title, label, s.outcome, note.trim().take(500), ""), save = true)
     }
 
@@ -141,13 +141,13 @@ class FeatureSuite(
 
     fun summary(): String = buildString {
         val s = _state.value
-        append("Bateria de recursos iniciada em ${java.util.Date(s.startedAt)}\n")
+        append("Bộ kiểm tra tính năng bắt đầu lúc ${java.util.Date(s.startedAt)}\n")
         s.results.forEach { r ->
-            append("\n[${r.id}] ${r.title}: ${r.verdict.uppercase()}\n  resultado do app: ${r.outcome.replace("\n", "\n    ")}\n")
-            if (r.note.isNotEmpty()) append("  observação: ${r.note}\n")
+            append("\n[${r.id}] ${r.title}: ${r.verdict.uppercase()}\n  kết quả của app: ${r.outcome.replace("\n", "\n    ")}\n")
+            if (r.note.isNotEmpty()) append("  nhận xét: ${r.note}\n")
         }
         val missing = steps.filter { st -> s.results.none { it.id == st.id } }
-        if (missing.isNotEmpty()) append("\nNão executadas: ${missing.joinToString { it.id }}\n")
+        if (missing.isNotEmpty()) append("\nChưa chạy: ${missing.joinToString { it.id }}\n")
     }
 
     private fun update(s: FeatureState) { _state.value = s; runCatching { store.save(encode(s)) } }

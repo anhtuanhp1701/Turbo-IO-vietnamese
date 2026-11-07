@@ -41,15 +41,15 @@ class FeatureSuiteTest {
         assertEquals(1, saved[0].second.size); assertTrue(saved[0].second[0].contains("→ 19/7"))
         // A failing step reports the error; repeat runs it again; skip moves on without saving.
         suite.start(); runCurrent()
-        assertEquals("Erro: quebrou", suite.state.value.outcome)
+        assertEquals("Lỗi: quebrou", suite.state.value.outcome)
         suite.repeatStep(); assertEquals(FeaturePhase.IDLE, suite.state.value.phase); assertEquals(1, suite.state.value.index)
         suite.skip(); assertEquals(2, suite.state.value.index); assertEquals(1, saved.size)
         // Timeout.
         suite.start(); advanceTimeBy(6000); runCurrent()
-        assertTrue(suite.state.value.outcome.startsWith("Tempo esgotado"))
+        assertTrue(suite.state.value.outcome.startsWith("Hết thời gian"))
         suite.verdict(false)
-        assertEquals(listOf("funcionou", "pulado", "não funcionou"), suite.state.value.results.map { it.verdict })
-        assertTrue(suite.summary().contains("[F3] Três: NÃO FUNCIONOU"))
+        assertEquals(listOf("funcionou", "pulado", "không hoạt động"), suite.state.value.results.map { it.verdict })
+        assertTrue(suite.summary().contains("[F3] Três: KHÔNG HOẠT ĐỘNG"))
         // Progress survives a restart.
         val again = FeatureSuite(steps, this, store, rec, { _, _, _, _ -> "" })
         assertEquals(3, again.state.value.index); assertEquals(3, again.state.value.results.size); assertTrue(again.state.value.active)
@@ -61,7 +61,7 @@ class FeatureSuiteTest {
         val suite = FeatureSuite(steps, this, MemStore(), rec, { _, _, _, _ -> "" }) { testScheduler.currentTime }
         suite.begin(); suite.start(); runCurrent()
         suite.stop(); runCurrent()
-        assertEquals("Etapa interrompida pelo usuário", suite.state.value.outcome)
+        assertEquals("Người dùng đã dừng bước này", suite.state.value.outcome)
         suite.repeatStep(); suite.start(); runCurrent()
         suite.end(); runCurrent()
         assertFalse(suite.state.value.active); assertEquals(FeaturePhase.IDLE, suite.state.value.phase); assertFalse(rec.recording)
@@ -69,7 +69,7 @@ class FeatureSuiteTest {
 
     @Test fun trafficIsRedacted() {
         val other = TrafficRecorder.describe(21, EnvelopeCodec.encode(1, """{"title":"Banco","content":"código 123456"}"""))
-        assertTrue(other.contains("conteúdo omitido")); assertFalse(other.contains("123456"))
+        assertTrue(other.contains("đã ẩn nội dung")); assertFalse(other.contains("123456"))
         val card = TrafficRecorder.describe(21, EnvelopeCodec.encode(2, """{"notificationUID":"5","title":"Marina","content":"segredo"}"""))
         assertFalse(card.contains("Marina")); assertFalse(card.contains("segredo")); assertTrue(card.contains("«7 caracteres»"))
         val uuid = "0a0b0c0d-0e0f-4011-8213-141516171819"

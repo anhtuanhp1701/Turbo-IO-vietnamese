@@ -31,7 +31,7 @@ class GroupOneTest {
     }
 
     @Test fun weatherWireAndIcons() {
-        val json = WeatherWire.update("São Paulo", 24, WeatherWire.icon(63), 1_760_000_000)
+        val json = WeatherWire.update("Hà Nội", 24, WeatherWire.icon(63), 1_760_000_000)
         val p = JSONObject(json).getJSONObject("payload")
         assertEquals("1760000000", p.getString("ts"))
         assertEquals(306, JSONObject(p.getString("data")).getInt("icon"))

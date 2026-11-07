@@ -53,10 +53,10 @@ internal fun java.io.InputStream.readNBytesCompat(limit: Int): ByteArray {
 class AiClient(private val transport: HttpTransport = UrlConnectionTransport()) {
     suspend fun ask(config: AiConfig, apiKey: String, history: List<ChatMessage>, question: String, audioWav: ByteArray? = null): AiAnswer {
         val trimmed = question.trim()
-        if (trimmed.isEmpty()) throw AiException("Digite ou fale uma pergunta")
-        if (trimmed.length > 4000) throw AiException("Pergunta muito longa (máx. 4000 caracteres)")
+        if (trimmed.isEmpty()) throw AiException("Hãy nhập hoặc nói một câu hỏi")
+        if (trimmed.length > 4000) throw AiException("Câu hỏi quá dài (tối đa 4000 ký tự)")
         ProviderCodec.validate(config, apiKey)?.let { throw AiException(it) }
-        if (audioWav != null && config.provider != ProviderKind.GEMINI) throw AiException("Pergunta por áudio só com o Google Gemini")
+        if (audioWav != null && config.provider != ProviderKind.GEMINI) throw AiException("Chỉ Google Gemini mới nhận câu hỏi bằng âm thanh")
         val request = ProviderCodec.build(config, apiKey, history, trimmed, audioWav)
         val timeoutMs = config.timeoutSeconds * 1000
         val started = System.nanoTime()
@@ -67,19 +67,19 @@ class AiClient(private val transport: HttpTransport = UrlConnectionTransport()) 
             }
         } catch (_: TimeoutCancellationException) {
             DiagnosticLog.w("AI", "tempo máximo de ${config.timeoutSeconds}s esgotado")
-            throw AiException("Tempo máximo de resposta (${config.timeoutSeconds}s) esgotado")
+            throw AiException("Hết thời gian chờ phản hồi (${config.timeoutSeconds}s)")
         } catch (_: SocketTimeoutException) {
-            throw AiException("Tempo máximo de resposta (${config.timeoutSeconds}s) esgotado")
+            throw AiException("Hết thời gian chờ phản hồi (${config.timeoutSeconds}s)")
         } catch (_: UnknownHostException) {
-            throw AiException("Sem internet ou servidor do provedor inacessível")
+            throw AiException("Không có internet hoặc không kết nối được máy chủ")
         } catch (e: IOException) {
             DiagnosticLog.w("AI", "erro de rede: ${e.javaClass.simpleName}")
-            throw AiException("Falha de rede ao contatar o provedor (${e.javaClass.simpleName})")
+            throw AiException("Lỗi mạng khi gọi nhà cung cấp (${e.javaClass.simpleName})")
         }
         val latency = (System.nanoTime() - started) / 1_000_000
         DiagnosticLog.i("AI", "HTTP ${result.status} em ${latency} ms, ${result.body.length} caracteres")
         val parsed = try { ProviderCodec.parse(config.provider, result) } catch (e: AiException) {
-            DiagnosticLog.w("AI", e.message ?: "erro"); throw e
+            DiagnosticLog.w("AI", e.message ?: "lỗi"); throw e
         }
         return AiAnswer(parsed.text, latency, config.provider, config.model, parsed.truncated)
     }

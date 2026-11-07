@@ -44,7 +44,7 @@ class GlassesTodoTest {
         sync.sync(); advanceUntilIdle(); assertEquals(3, port.sent.size)
         // Completed on the glasses → done here, and never reopened by a resend.
         port.glasses(22, 4, """{"eventID":$wireId,"status":1,"isImportant":false,"lastModifiedTime":123}"""); advanceUntilIdle()
-        assertEquals(ItemStatus.DONE, store.item(dentist)!!.status); assertEquals("concluída nos óculos", store.item(dentist)!!.doneEvidence)
+        assertEquals(ItemStatus.DONE, store.item(dentist)!!.status); assertEquals("đã xong trên kính", store.item(dentist)!!.doneEvidence)
         sync.sync(); advanceUntilIdle(); assertEquals(3, port.sent.size)
         port.glasses(22, 10, """{"todoTotal":1,"eventList":[{"eventType":1,"eventID":$wireId,"status":0}]}"""); advanceUntilIdle()
         assertEquals(ItemStatus.OPEN, store.item(dentist)!!.status)                  // unchecked on the glasses

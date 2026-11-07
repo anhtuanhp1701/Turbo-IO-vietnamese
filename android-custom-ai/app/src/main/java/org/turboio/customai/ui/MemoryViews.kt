@@ -41,21 +41,21 @@ class MemoryViews(private val context: Context, private val scope: () -> Lifecyc
         val lines = withContext(Dispatchers.IO) { (open + done).associate { it.id to app.memoryQueries.line(it, now) } }
         val names = withContext(Dispatchers.IO) { app.memoryStore.people().associate { it.id to it.name } }
         pending.clear()
-        pending.title("Pendências")
-        pending.hint("Criadas automaticamente a partir das suas conversas e perguntas. Cada uma mostra de onde veio. " +
-            "Toque para marcar como feita, descartar ou editar.")
-        pending.button("Analisar conversas agora") { analyseNow() }
-        pending.buttons("Mostrar nas lentes" to { io { app.showPendingOnLens()?.let { toast(it) } } }, "Adicionar" to { add() })
-        if (open.isEmpty()) pending.text("Nenhuma pendência aberta.", size = 14f)
+        pending.title("Việc cần làm")
+        pending.hint("Được tạo tự động từ các cuộc trò chuyện và câu hỏi của bạn. Mỗi việc ghi rõ nguồn gốc. " +
+            "Chạm để đánh dấu xong, bỏ hoặc sửa.")
+        pending.button("Phân tích trò chuyện ngay") { analyseNow() }
+        pending.buttons("Hiện trên kính" to { io { app.showPendingOnLens()?.let { toast(it) } } }, "Thêm" to { add() })
+        if (open.isEmpty()) pending.text("Không có việc nào đang mở.", size = 14f)
         val overdue = open.filter { (it.dueAt ?: Long.MAX_VALUE) < now }
-        if (overdue.isNotEmpty()) pending.text("⚠ ${overdue.size} atrasada(s)", size = 13f).setTextColor(statusColor(false))
+        if (overdue.isNotEmpty()) pending.text("⚠ ${overdue.size} việc quá hạn", size = 13f).setTextColor(statusColor(false))
         for (i in open) itemCard(i, lines.getValue(i.id), names[i.personId])
         if (done.isNotEmpty()) {
-            pending.title("Concluídas recentemente")
+            pending.title("Mới hoàn thành")
             for (i in done) pending.text("✓ " + lines.getValue(i.id) + (if (i.doneEvidence.isNotBlank()) "\n   “${i.doneEvidence}”" else ""), size = 13f).apply {
                 alpha = 0.7f; setOnClickListener { setStatus(i, ItemStatus.OPEN) }
             }
-            pending.hint("Toque em uma concluída para reabri-la.")
+            pending.hint("Chạm vào một việc đã xong để mở lại.")
         }
         settings()
     }
@@ -71,43 +71,43 @@ class MemoryViews(private val context: Context, private val scope: () -> Lifecyc
             if (person != null && !line.contains(person)) append(" · ").append(person)
         }
         if (origin.isNotBlank()) c.hint(origin)
-        c.buttons("Feita" to { setStatus(i, ItemStatus.DONE) }, "Descartar" to { setStatus(i, ItemStatus.DISMISSED) }, "Editar" to { edit(i) })
+        c.buttons("Xong" to { setStatus(i, ItemStatus.DONE) }, "Bỏ" to { setStatus(i, ItemStatus.DISMISSED) }, "Sửa" to { edit(i) })
     }
 
     private fun setStatus(i: Item, s: ItemStatus): kotlinx.coroutines.Job = io {
-        withContext(Dispatchers.IO) { app.memoryStore.setStatus(i.id, s, System.currentTimeMillis(), if (s == ItemStatus.DONE) "marcada no app" else "") }
-        if (s == ItemStatus.DISMISSED) toast("Descartada — não será sugerida de novo")
+        withContext(Dispatchers.IO) { app.memoryStore.setStatus(i.id, s, System.currentTimeMillis(), if (s == ItemStatus.DONE) "đã đánh dấu trong app" else "") }
+        if (s == ItemStatus.DISMISSED) toast("Đã bỏ — sẽ không gợi ý lại")
         app.memoryChanged()
         loadPending()
     }
 
     private fun edit(i: Item) {
         val field = EditText(context).apply { setText(i.text) }
-        AlertDialog.Builder(context).setTitle("Editar pendência").setView(field)
-            .setPositiveButton("Salvar") { _, _ -> io {
+        AlertDialog.Builder(context).setTitle("Sửa việc").setView(field)
+            .setPositiveButton("Lưu") { _, _ -> io {
                 withContext(Dispatchers.IO) { app.memoryStore.updateItem(i.copy(text = field.text.toString().trim().ifEmpty { i.text }, updatedAt = System.currentTimeMillis())) }
                 app.memoryChanged(); loadPending()
-            } }.setNegativeButton("Cancelar", null).show()
+            } }.setNegativeButton("Hủy", null).show()
     }
 
     private fun add() {
-        val field = EditText(context).apply { hint = "Ex.: ligar para o João sexta às 10h" }
-        AlertDialog.Builder(context).setTitle("Nova pendência").setView(field).setPositiveButton("Adicionar") { _, _ ->
+        val field = EditText(context).apply { hint = "Vd: gọi cho anh Nam thứ Sáu lúc 10 giờ" }
+        AlertDialog.Builder(context).setTitle("Việc mới").setView(field).setPositiveButton("Thêm") { _, _ ->
             val text = field.text.toString().trim()
             if (text.length >= 3) io {
                 val item = withContext(Dispatchers.IO) { app.memory.quickItem(text, System.currentTimeMillis()).also { Reminders.sync(app) } }
-                toast("Anotado: ${item.text}"); app.memoryChanged(); loadPending()
+                toast("Đã ghi: ${item.text}"); app.memoryChanged(); loadPending()
             }
-        }.setNegativeButton("Cancelar", null).show()
+        }.setNegativeButton("Hủy", null).show()
     }
 
     private fun analyseNow(): kotlinx.coroutines.Job = io {
-        toast("Analisando conversas…")
+        toast("Đang phân tích trò chuyện…")
         val now = System.currentTimeMillis(); val today = Days.of(now)
         val run = withContext(Dispatchers.IO) { app.memory.process(listOf(Days.shift(today, -1), today), now) }
         withContext(Dispatchers.IO) { Reminders.sync(app) }
         app.memoryChanged()
-        toast("${run.blocks} conversa(s) analisada(s) · ${run.newItems.size} nova(s) pendência(s)" + if (run.failed > 0) " · ${run.failed} falha(s)" else "")
+        toast("Đã phân tích ${run.blocks} cuộc trò chuyện · ${run.newItems.size} việc mới" + if (run.failed > 0) " · ${run.failed} lỗi" else "")
         loadPending()
     }
 
@@ -116,27 +116,27 @@ class MemoryViews(private val context: Context, private val scope: () -> Lifecyc
         fun save(change: (org.turboio.customai.memory.MemorySettings) -> org.turboio.customai.memory.MemorySettings) {
             app.settings.saveMemory(change(app.settings.memorySettings())); MemorySchedule.all(context)
         }
-        pending.title("Configurações da memória")
-        pending.switch("Analisar conversas e criar pendências automaticamente", s.enabled) { v -> save { it.copy(enabled = v) } }
-        pending.switch("Avisar quando surgir uma pendência nova", s.notifyNew) { v -> save { it.copy(notifyNew = v) } }
-        pending.switch("Mostrar pendências novas nas lentes", s.lensNew) { v -> save { it.copy(lensNew = v) } }
-        pending.switch("Enviar pendências ao app To-do dos óculos (experimental)", s.glassesTodo) { v -> save { it.copy(glassesTodo = v) }; if (v) app.memoryChanged() }
-        pending.hint("Com os óculos conectados, as pendências abertas (até 30) aparecem no To-do nativo dos óculos e no widget do painel, " +
-            "se ele estiver no seu painel. Concluir lá conclui aqui. Não há como apagar itens pelo Bluetooth: concluídas e descartadas são marcadas como feitas.")
-        pending.switch("Confirmar pendências novas nos óculos (acenar = sim, balançar = não; experimental)", s.nodConfirm) { v -> save { it.copy(nodConfirm = v) } }
-        pending.hint("Para cada pendência achada nas conversas (até 3 por vez), os óculos mostram um cartão. Sem resposta em 30 s, a pendência fica.")
-        pending.switch("Lembrete antes do prazo (notificação e lentes)", s.reminders) { v -> save { it.copy(reminders = v) } }
-        pending.switch("Resumo da manhã", s.morning) { v -> save { it.copy(morning = v) } }
-        val morning = pending.field("Horário do resumo da manhã (HH:MM)", "%02d:%02d".format(s.morningHour, s.morningMinute))
-        pending.switch("Revisão semanal (domingo)", s.weekly) { v -> save { it.copy(weekly = v) } }
-        pending.button("Salvar horário", filled = false) {
+        pending.title("Cài đặt bộ nhớ")
+        pending.switch("Phân tích trò chuyện và tự động tạo việc cần làm", s.enabled) { v -> save { it.copy(enabled = v) } }
+        pending.switch("Báo khi có việc mới", s.notifyNew) { v -> save { it.copy(notifyNew = v) } }
+        pending.switch("Hiện việc mới trên kính", s.lensNew) { v -> save { it.copy(lensNew = v) } }
+        pending.switch("Gửi việc cần làm vào app To-do của kính (thử nghiệm)", s.glassesTodo) { v -> save { it.copy(glassesTodo = v) }; if (v) app.memoryChanged() }
+        pending.hint("Khi kính được kết nối, các việc đang mở (tối đa 30) hiện trong To-do gốc của kính và trong tiện ích trên bảng điều khiển, " +
+            "nếu nó có trên bảng của bạn. Hoàn thành ở đó thì cũng hoàn thành ở đây. Không thể xóa mục qua Bluetooth: việc đã xong và đã bỏ được đánh dấu là xong.")
+        pending.switch("Xác nhận việc mới trên kính (gật = có, lắc = không; thử nghiệm)", s.nodConfirm) { v -> save { it.copy(nodConfirm = v) } }
+        pending.hint("Với mỗi việc tìm thấy trong trò chuyện (tối đa 3 mỗi lần), kính hiện một thẻ. Không trả lời trong 30 giây thì việc được giữ lại.")
+        pending.switch("Nhắc trước hạn (thông báo và trên kính)", s.reminders) { v -> save { it.copy(reminders = v) } }
+        pending.switch("Tóm tắt buổi sáng", s.morning) { v -> save { it.copy(morning = v) } }
+        val morning = pending.field("Giờ tóm tắt buổi sáng (HH:MM)", "%02d:%02d".format(s.morningHour, s.morningMinute))
+        pending.switch("Tổng kết tuần (Chủ nhật)", s.weekly) { v -> save { it.copy(weekly = v) } }
+        pending.button("Lưu giờ", filled = false) {
             val m = Regex("^(\\d{1,2}):(\\d{2})$").find(morning.text.toString().trim())
             val h = m?.groupValues?.get(1)?.toIntOrNull(); val mi = m?.groupValues?.get(2)?.toIntOrNull()
-            if (h == null || mi == null || h > 23 || mi > 59) toast("Use HH:MM") else { save { it.copy(morningHour = h, morningMinute = mi) }; toast("Salvo") }
+            if (h == null || mi == null || h > 23 || mi > 59) toast("Dùng HH:MM") else { save { it.copy(morningHour = h, morningMinute = mi) }; toast("Đã lưu") }
         }
-        pending.title("Privacidade por tipo de conversa")
-        pending.hint("“Ignorar” deixa a conversa no diário, mas fora de pendências e resumos. “Não guardar” apaga as falas " +
-            "dessa conversa do diário depois de classificá-la.")
+        pending.title("Quyền riêng tư theo loại trò chuyện")
+        pending.hint("“Bỏ qua” giữ cuộc trò chuyện trong nhật ký nhưng không đưa vào việc cần làm và tóm tắt. “Không lưu” xóa các câu nói " +
+            "của cuộc trò chuyện đó khỏi nhật ký sau khi phân loại.")
         for (cat in Categories.ALL) {
             pending.text(Categories.LABELS.getValue(cat), size = 13f)
             val options = CategoryPolicy.entries
@@ -150,65 +150,65 @@ class MemoryViews(private val context: Context, private val scope: () -> Lifecyc
     fun loadPeople(): kotlinx.coroutines.Job = io {
         val list = withContext(Dispatchers.IO) { app.memoryStore.people().map { it to app.memoryStore.itemsOf(it.id).size } }
         people.clear()
-        people.title("Pessoas")
-        people.hint("Nomes descobertos pelo contexto das conversas (só com evidência clara) ou indicados por você. " +
-            "Para dizer quem é uma “Pessoa A”, toque longo na fala dela na linha do tempo do dia.")
-        if (list.isEmpty()) people.text("Ninguém identificado ainda.", size = 14f)
+        people.title("Mọi người")
+        people.hint("Tên được phát hiện từ ngữ cảnh trò chuyện (chỉ khi có bằng chứng rõ ràng) hoặc do bạn chỉ định. " +
+            "Để cho biết “Người A” là ai, hãy giữ lâu câu nói của họ trên dòng thời gian trong ngày.")
+        if (list.isEmpty()) people.text("Chưa xác định được ai.", size = 14f)
         for ((p, open) in list) {
             val c = people.card()
             c.text(p.name, size = 16f).setTypeface(null, Typeface.BOLD)
-            c.hint(listOfNotNull(p.relation.ifBlank { null }, "${p.conversations} conversa(s)",
-                if (p.lastSeen > 0) "última: ${Days.label(Days.of(p.lastSeen))}" else null, if (open > 0) "$open pendência(s)" else null).joinToString(" · "))
+            c.hint(listOfNotNull(p.relation.ifBlank { null }, "${p.conversations} cuộc trò chuyện",
+                if (p.lastSeen > 0) "gần nhất: ${Days.label(Days.of(p.lastSeen))}" else null, if (open > 0) "$open việc" else null).joinToString(" · "))
             c.root.setOnClickListener { showPerson(p) }
-            c.buttons("Ver" to { showPerson(p) }, "Renomear" to { rename(p) }, "Juntar" to { merge(p) })
+            c.buttons("Xem" to { showPerson(p) }, "Đổi tên" to { rename(p) }, "Gộp" to { merge(p) })
         }
     }
 
     private fun showPerson(p: Person): kotlinx.coroutines.Job = io {
         val card = withContext(Dispatchers.IO) { app.memoryQueries.personCard(p, System.currentTimeMillis()) }
         AlertDialog.Builder(context).setTitle(p.name).setMessage(card)
-            .setPositiveButton("Fechar", null)
-            .setNeutralButton("Apagar pessoa") { _, _ -> AlertDialog.Builder(context).setTitle("Apagar ${p.name}?")
-                .setMessage("Remove a ficha. As falas no diário continuam; as pendências ficam sem pessoa.")
-                .setPositiveButton("Apagar") { _, _ -> io { withContext(Dispatchers.IO) { app.memoryStore.deletePerson(p.id) }; loadPeople() } }
-                .setNegativeButton("Cancelar", null).show() }
+            .setPositiveButton("Đóng", null)
+            .setNeutralButton("Xóa người này") { _, _ -> AlertDialog.Builder(context).setTitle("Xóa ${p.name}?")
+                .setMessage("Xóa hồ sơ. Các câu nói trong nhật ký vẫn còn; các việc sẽ không gắn với ai.")
+                .setPositiveButton("Xóa") { _, _ -> io { withContext(Dispatchers.IO) { app.memoryStore.deletePerson(p.id) }; loadPeople() } }
+                .setNegativeButton("Hủy", null).show() }
             .show()
     }
 
     private fun rename(p: Person) {
         val field = EditText(context).apply { setText(p.name) }
-        AlertDialog.Builder(context).setTitle("Renomear").setView(field).setPositiveButton("Salvar") { _, _ ->
+        AlertDialog.Builder(context).setTitle("Đổi tên").setView(field).setPositiveButton("Lưu") { _, _ ->
             val name = field.text.toString().trim()
             if (name.isNotEmpty()) io { withContext(Dispatchers.IO) { app.memoryStore.renamePerson(p.id, name) }; loadPeople() }
-        }.setNegativeButton("Cancelar", null).show()
+        }.setNegativeButton("Hủy", null).show()
     }
 
     private fun merge(p: Person): kotlinx.coroutines.Job = io {
         val others = withContext(Dispatchers.IO) { app.memoryStore.people().filter { it.id != p.id } }
-        if (others.isEmpty()) { toast("Não há outra pessoa para juntar"); return@io }
-        AlertDialog.Builder(context).setTitle("${p.name} é a mesma pessoa que…").setItems(others.map { it.name }.toTypedArray()) { _, which ->
-            io { withContext(Dispatchers.IO) { app.memoryStore.mergePeople(p.id, others[which].id) }; toast("Juntado em ${others[which].name}"); loadPeople() }
-        }.setNegativeButton("Cancelar", null).show()
+        if (others.isEmpty()) { toast("Không có người nào khác để gộp"); return@io }
+        AlertDialog.Builder(context).setTitle("${p.name} là cùng một người với…").setItems(others.map { it.name }.toTypedArray()) { _, which ->
+            io { withContext(Dispatchers.IO) { app.memoryStore.mergePeople(p.id, others[which].id) }; toast("Đã gộp vào ${others[which].name}"); loadPeople() }
+        }.setNegativeButton("Hủy", null).show()
     }
 
     /** Timeline long-press on an ambient utterance: who is speaking? */
     fun assignSpeaker(entry: Entry, after: () -> Unit) = io {
         val known = withContext(Dispatchers.IO) { app.memoryStore.people() }
-        val names = known.map { it.name } + "Outro nome…"
-        AlertDialog.Builder(context).setTitle("Quem está falando?").setItems(names.toTypedArray()) { _, which ->
+        val names = known.map { it.name } + "Tên khác…"
+        AlertDialog.Builder(context).setTitle("Ai đang nói?").setItems(names.toTypedArray()) { _, which ->
             if (which < known.size) apply(entry, known[which].name, after)
             else {
-                val field = EditText(context).apply { hint = "Nome" }
-                AlertDialog.Builder(context).setTitle("Nome de quem fala").setView(field)
-                    .setPositiveButton("Salvar") { _, _ -> field.text.toString().trim().takeIf { it.isNotEmpty() }?.let { apply(entry, it, after) } }
-                    .setNegativeButton("Cancelar", null).show()
+                val field = EditText(context).apply { hint = "Tên" }
+                AlertDialog.Builder(context).setTitle("Tên người nói").setView(field)
+                    .setPositiveButton("Lưu") { _, _ -> field.text.toString().trim().takeIf { it.isNotEmpty() }?.let { apply(entry, it, after) } }
+                    .setNegativeButton("Hủy", null).show()
             }
-        }.setNegativeButton("Cancelar", null).show()
+        }.setNegativeButton("Hủy", null).show()
     }
 
     private fun apply(entry: Entry, name: String, after: () -> Unit) = io {
         val p = withContext(Dispatchers.IO) { app.memory.assignSpeaker(entry, name) }
-        toast(if (p != null) "Falas deste trecho atribuídas a ${p.name}" else "Esta fala não tem rótulo de falante")
+        toast(if (p != null) "Các câu nói trong đoạn này được gán cho ${p.name}" else "Câu nói này không có nhãn người nói")
         after()
     }
 
@@ -218,27 +218,27 @@ class MemoryViews(private val context: Context, private val scope: () -> Lifecyc
         val weekStart = app.memoryQueries.weekStart(now).toString()
         val stored = withContext(Dispatchers.IO) { app.journal.latestInsight(weekStart, "weekly") }
         week.clear()
-        week.title("Semana de ${Days.label(weekStart)}")
-        val text = week.text(stored?.text ?: "Revisão ainda não gerada nesta semana.", size = 14f)
-        week.button("Gerar / atualizar revisão da semana") {
-            text.text = "Gerando…"
-            io { val w = app.weeklyReview(force = true); text.text = w?.text ?: "Ainda não há conteúdo suficiente nesta semana." }
+        week.title("Tuần bắt đầu ${Days.label(weekStart)}")
+        val text = week.text(stored?.text ?: "Chưa tạo tổng kết cho tuần này.", size = 14f)
+        week.button("Tạo / cập nhật tổng kết tuần") {
+            text.text = "Đang tạo…"
+            io { val w = app.weeklyReview(force = true); text.text = w?.text ?: "Tuần này chưa có đủ nội dung." }
         }
-        week.title("Resumo da manhã")
+        week.title("Tóm tắt buổi sáng")
         val brief = week.text("", size = 14f)
-        week.buttons("Ver agora" to { io { brief.text = withContext(Dispatchers.IO) { app.memoryQueries.morningBrief(System.currentTimeMillis()) } ?: "Nada pendente." } },
-            "Nas lentes" to { io {
-                val t = withContext(Dispatchers.IO) { app.memoryQueries.morningBrief(System.currentTimeMillis()) } ?: "Nada pendente."
-                if (app.session.isReady) app.display.show(t, app.settings.displaySettings()) else toast("Conecte os óculos")
+        week.buttons("Xem ngay" to { io { brief.text = withContext(Dispatchers.IO) { app.memoryQueries.morningBrief(System.currentTimeMillis()) } ?: "Không có việc nào." } },
+            "Trên kính" to { io {
+                val t = withContext(Dispatchers.IO) { app.memoryQueries.morningBrief(System.currentTimeMillis()) } ?: "Không có việc nào."
+                if (app.session.isReady) app.display.show(t, app.settings.displaySettings()) else toast("Hãy kết nối kính")
             } })
-        week.title("Perguntar ao diário")
-        week.hint("Por sentido e período, ex.: “o que falei de custos semana passada?”, “o que combinei com a Marina?”")
-        val q = week.field("Pergunta")
+        week.title("Hỏi nhật ký")
+        week.hint("Theo ý nghĩa và thời gian, vd: “tuần trước tôi nói gì về chi phí?”, “tôi đã hẹn gì với Lan?”")
+        val q = week.field("Câu hỏi")
         val answer = week.text("", size = 14f)
-        week.button("Perguntar") {
+        week.button("Hỏi") {
             val question = q.text.toString().trim()
-            if (question.length < 4) { toast("Escreva a pergunta"); return@button }
-            answer.text = "Procurando…"
+            if (question.length < 4) { toast("Hãy viết câu hỏi"); return@button }
+            answer.text = "Đang tìm…"
             io {
                 val a = app.journalAnswer(question, org.turboio.customai.journal.EntrySource.TEXT)
                     ?: withContext(Dispatchers.IO) { app.memoryQueries.search(question, System.currentTimeMillis()) }

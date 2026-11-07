@@ -13,17 +13,17 @@ class MoreFragment : Fragment() {
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, saved: Bundle?): View {
         val ui = Column(requireContext())
         val main = activity as? MainActivity
-        ui.header("Mais", "Ferramentas, testes e diagnóstico")
-        ui.section("Ferramentas")
+        ui.header("Thêm", "Công cụ, bài thử và chẩn đoán")
+        ui.section("Công cụ")
         ui.nav(R.drawable.ic_mic, "Phiên dịch 2 chiều", "Dịch tự động giữa bạn và người đối diện, hiện trên kính và đọc to") { main?.open(InterpreterFragment()) }
-        ui.nav(R.drawable.ic_chat, "Perguntar à IA", "Pergunta escrita, resposta nas lentes") { main?.open(TestFragment()) }
-        ui.nav(R.drawable.ic_prompter, "Teleprompter", "Roteiro colado ou de um arquivo .txt") { main?.open(TestFragment()) }
-        ui.section("Testes e diagnóstico")
-        ui.nav(R.drawable.ic_flask, "Bateria de recursos", "Testa cada função nos óculos e exporta um arquivo") { main?.open(DiagnosticsFragment()) }
-        ui.nav(R.drawable.ic_diag, "Diagnóstico", "Estado da conexão, log técnico, bateria de áudio") { main?.open(DiagnosticsFragment()) }
-        ui.section("Sobre")
-        ui.hint("Turbo IO IA ${BuildConfig.VERSION_NAME} · app independente para RayNeo iO com firmware original. " +
-            "Não altera o firmware nem o app oficial.")
+        ui.nav(R.drawable.ic_chat, "Hỏi AI", "Hỏi bằng chữ, trả lời trên kính") { main?.open(TestFragment()) }
+        ui.nav(R.drawable.ic_prompter, "Máy nhắc chữ", "Dán kịch bản hoặc mở tệp .txt") { main?.open(TestFragment()) }
+        ui.section("Bài thử và chẩn đoán")
+        ui.nav(R.drawable.ic_flask, "Bộ kiểm tra tính năng", "Thử từng chức năng trên kính và xuất ra tệp") { main?.open(DiagnosticsFragment()) }
+        ui.nav(R.drawable.ic_diag, "Chẩn đoán", "Trạng thái kết nối, log kỹ thuật, kiểm tra âm thanh") { main?.open(DiagnosticsFragment()) }
+        ui.section("Giới thiệu")
+        ui.hint("Turbo IO AI ${BuildConfig.VERSION_NAME} · app độc lập cho RayNeo iO dùng firmware gốc. " +
+            "Không sửa firmware hay app chính thức.")
         return ui.scroll()
     }
 }

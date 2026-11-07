@@ -136,14 +136,14 @@ class JournalTest {
         assertEquals("ok na segunda", InsightEngine(store, llm, { "p" to "m" }).day("2026-10-16").insight.resumo)
         assertTrue(llm.calls[1].second.contains(InsightPrompts.RETRY))
         val broken = FakeLlm({ "sem json" })
-        assertTrue(InsightEngine(store, broken, { "p" to "m2" }).day("2026-10-16", force = true).insight.resumo.contains("indisponível"))
+        assertTrue(InsightEngine(store, broken, { "p" to "m2" }).day("2026-10-16", force = true).insight.resumo.contains("không khả dụng"))
     }
 
     @Test fun journalQueriesAreExcludedFromInsights() = runBlocking {
         interaction("2026-10-16", 9, "resumo do meu dia", "...", meta = "{\"journal_query\":true}")
         val llm = FakeLlm({ insightJson })
         val r = InsightEngine(store, llm, { "p" to "m" }).day("2026-10-16")
-        assertTrue(r.text.startsWith("Nenhum registro")); assertEquals(0, llm.calls.size)
+        assertTrue(r.text.startsWith("Không có ghi chép")); assertEquals(0, llm.calls.size)
     }
 
     @Test fun groundedSearchAnswer() = runBlocking {
@@ -151,7 +151,7 @@ class JournalTest {
         val llm = FakeLlm({ insightJson })
         val engine = InsightEngine(store, llm, { "p" to "m" })
         assertTrue(engine.ask("o que falei sobre orçamento", "orcamento", "2026-10-16").startsWith("Resposta da busca"))
-        assertTrue(engine.ask("o que falei sobre viagem", "viagem", "2026-10-16").startsWith("Não encontrei"))
+        assertTrue(engine.ask("o que falei sobre viagem", "viagem", "2026-10-16").startsWith("Không tìm thấy"))
     }
 
     @Test fun insightParsingIsTolerant() {
@@ -197,7 +197,7 @@ class JournalTest {
     @Test fun exportMarkdown() {
         interaction("2026-10-16", 9, "pergunta", "resposta")
         val md = JournalExport.markdown("2026-10-16", store.day("2026-10-16"), null)
-        assertTrue(md.startsWith("# Diário Turbo IO — 16/10/2026")); assertTrue(md.contains("**Você:** pergunta")); assertTrue(md.contains("**IA:** resposta"))
+        assertTrue(md.startsWith("# Nhật ký Turbo IO — 16/10/2026")); assertTrue(md.contains("**Tôi:** pergunta")); assertTrue(md.contains("**IA:** resposta"))
     }
 
     @Test fun dailyScheduleDelay() {

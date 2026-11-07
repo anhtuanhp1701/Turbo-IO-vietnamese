@@ -24,7 +24,7 @@ class PhoneRecognizer(private val context: Context) {
 
     private fun startNow(language: String, onPartial: (String) -> Unit, onResult: (String?, String?) -> Unit) {
         cancelNow()
-        if (!SpeechRecognizer.isRecognitionAvailable(context)) { onResult(null, "Reconhecimento de voz do Android indisponível"); return }
+        if (!SpeechRecognizer.isRecognitionAvailable(context)) { onResult(null, "Nhận dạng giọng nói của Android không khả dụng"); return }
         val r = SpeechRecognizer.createSpeechRecognizer(context)
         recognizer = r
         var delivered = false
@@ -53,7 +53,7 @@ class PhoneRecognizer(private val context: Context) {
             .putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, language)
             .putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
             .putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-        try { r.startListening(intent) } catch (e: Exception) { deliver(null, "Falha ao iniciar reconhecimento: ${e.javaClass.simpleName}") }
+        try { r.startListening(intent) } catch (e: Exception) { deliver(null, "Không bắt đầu được nhận dạng: ${e.javaClass.simpleName}") }
     }
 
     fun cancel() { main.post { cancelNow() } }
@@ -65,11 +65,11 @@ class PhoneRecognizer(private val context: Context) {
     }
 
     private fun describe(code: Int): String = when (code) {
-        SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "Não entendi. Tente falar novamente."
-        SpeechRecognizer.ERROR_AUDIO -> "Erro de áudio no microfone"
-        SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Permissão de microfone negada"
-        SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "Sem rede para o reconhecimento de voz"
-        SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "Reconhecedor ocupado; tente de novo"
-        else -> "Erro no reconhecimento de voz ($code)"
+        SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "Không nghe rõ. Hãy nói lại."
+        SpeechRecognizer.ERROR_AUDIO -> "Lỗi âm thanh ở micro"
+        SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Quyền micro bị từ chối"
+        SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "Không có mạng để nhận dạng giọng nói"
+        SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "Bộ nhận dạng đang bận; hãy thử lại"
+        else -> "Lỗi nhận dạng giọng nói ($code)"
     }
 }

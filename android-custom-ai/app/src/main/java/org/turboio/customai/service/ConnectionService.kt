@@ -27,13 +27,13 @@ class ConnectionService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val manager = getSystemService(NotificationManager::class.java)
         if (Build.VERSION.SDK_INT >= 26) {
-            manager.createNotificationChannel(NotificationChannel(CHANNEL, "Conexão com os óculos", NotificationManager.IMPORTANCE_LOW))
+            manager.createNotificationChannel(NotificationChannel(CHANNEL, "Kết nối với kính", NotificationManager.IMPORTANCE_LOW))
         }
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         val notification: Notification = NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_glasses)
-            .setContentTitle("Turbo IO conectado")
-            .setContentText("Mantendo a conexão Bluetooth com os óculos RayNeo iO")
+            .setContentTitle("Turbo IO đã kết nối")
+            .setContentText("Đang duy trì kết nối Bluetooth với kính RayNeo iO")
             .setContentIntent(open)
             .setOngoing(true)
             .build()

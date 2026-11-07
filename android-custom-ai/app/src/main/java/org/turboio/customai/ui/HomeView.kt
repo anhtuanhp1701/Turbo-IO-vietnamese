@@ -39,15 +39,15 @@ object HomeView {
     fun build(context: Context, m: HomeModel, a: HomeActions): View {
         val ui = Column(context)
         val d = context.resources.displayMetrics.density
-        ui.header(m.name, "Turbo IO · sua IA nos óculos")
+        ui.header(m.name, "Turbo IO · AI của bạn trên kính")
         ui.root.addView(heroCard(context, m, a), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (16 * d).toInt() })
-        ui.section("Atalhos")
+        ui.section("Lối tắt")
         ui.tiles(m.tiles)
-        ui.section("Hoje")
+        ui.section("Hôm nay")
         val today = ui.card()
         today.title(m.todayTitle)
         m.todayLines.forEach { today.hint(it) }
-        today.button("Abrir memória", filled = false) { a.today() }
+        today.button("Mở bộ nhớ", filled = false) { a.today() }
         ui.root.setPadding(ui.root.paddingLeft, ui.root.paddingTop, ui.root.paddingRight, (110 * d).toInt())   // room for the pill
         val frame = FrameLayout(context)
         frame.addView(ui.scroll())
@@ -77,8 +77,8 @@ object HomeView {
         val middle = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         val texts = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
         texts.addView(TextView(context).apply {
-            text = if (m.battery != null) "${m.battery}%" else "Conecte os óculos"; textSize = if (m.battery != null) 44f else 26f
-            setTextColor(Palette.TEXT); contentDescription = if (m.battery != null) "Bateria" else null
+            text = if (m.battery != null) "${m.battery}%" else "Hãy kết nối kính"; textSize = if (m.battery != null) 44f else 26f
+            setTextColor(Palette.TEXT); contentDescription = if (m.battery != null) "Pin" else null
             typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
         })
         texts.addView(TextView(context).apply { text = m.firmware; textSize = 13f; setTextColor(Palette.MUTED) })
@@ -97,8 +97,8 @@ object HomeView {
             if (!filled) { strokeColor = ColorStateList.valueOf(Palette.STROKE); strokeWidth = dp(1) }
             setOnClickListener { click() }
         }
-        if (m.connected != true) actions.addView(pill("Conectar", true, a.connect), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = dp(8) })
-        actions.addView(pill(if (m.connected == true) "Ajustes dos óculos" else "Ajustes", m.connected == true, a.glasses), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        if (m.connected != true) actions.addView(pill("Kết nối", true, a.connect), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = dp(8) })
+        actions.addView(pill(if (m.connected == true) "Cài đặt kính" else "Cài đặt", m.connected == true, a.glasses), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         inner.addView(actions, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(14) })
         card.addView(inner)
         return card
@@ -115,7 +115,7 @@ object HomeView {
             isClickable = true; setOnClickListener { ask() }
             addView(ImageView(context).apply { setImageResource(R.drawable.ic_sparkle); imageTintList = ColorStateList.valueOf(Palette.PRIMARY) },
                 LinearLayout.LayoutParams((22 * d).toInt(), (22 * d).toInt()))
-            addView(TextView(context).apply { text = "Perguntar à IA"; textSize = 16f; setTextColor(Palette.TEXT); setPadding((12 * d).toInt(), 0, 0, 0) },
+            addView(TextView(context).apply { text = "Hỏi AI"; textSize = 16f; setTextColor(Palette.TEXT); setPadding((12 * d).toInt(), 0, 0, 0) },
                 LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             addView(ImageView(context).apply { setImageResource(R.drawable.ic_chevron); imageTintList = ColorStateList.valueOf(Palette.MUTED) },
                 LinearLayout.LayoutParams((18 * d).toInt(), (18 * d).toInt()))

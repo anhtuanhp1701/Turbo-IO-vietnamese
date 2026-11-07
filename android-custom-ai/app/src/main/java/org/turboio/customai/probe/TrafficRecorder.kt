@@ -35,7 +35,7 @@ class TrafficRecorder(private val clock: () -> Long = System::currentTimeMillis,
             // Streams of audio frames collapse into one line with a count.
             if (text == last && text.contains(" bin=") && !text.contains(" bin=0B")) { repeats++; return }
             flushRepeat()
-            if (lines.size >= max) { if (lines.size == max) lines.add("… captura limitada a $max linhas"); return }
+            if (lines.size >= max) { if (lines.size == max) lines.add("… chỉ ghi tối đa $max dòng"); return }
             lines.add("+%.3f s %s".format(java.util.Locale.US, (clock() - t0) / 1000.0, text))
             last = text
         }
@@ -63,13 +63,13 @@ class TrafficRecorder(private val clock: () -> Long = System::currentTimeMillis,
             val e = runCatching { EnvelopeCodec.decode(payload) }.getOrNull() ?: return "$business bruto ${payload.size} B"
             val head = "$business/${e.type}" + (if (e.sequence != 0L) " seq=${e.sequence}" else "") + " json=${e.json.size}B bin=${e.binary.size}B"
             if (e.json.isEmpty()) return head
-            if (business == Business.NOTIFICATION && e.type == 1) return "$head [notificação de outro app: conteúdo omitido]"
+            if (business == Business.NOTIFICATION && e.type == 1) return "$head [thông báo của app khác: đã ẩn nội dung]"
             var json = e.jsonText()
             if (business == Business.NOTIFICATION && e.type == 2) json = runCatching {
                 val j = JSONObject(json)
-                CARD_TEXT.forEach { k -> if (j.has(k)) j.put(k, "«${j.optString(k).length} caracteres»") }
+                CARD_TEXT.forEach { k -> if (j.has(k)) j.put(k, "«${j.optString(k).length} ký tự»") }
                 j.toString()
-            }.getOrDefault("[cartão ilegível]")
+            }.getOrDefault("[thẻ không đọc được]")
             // Device serial numbers are not needed for diagnosis.
             json = json.replace(Regex("\"(sn|tableSn|cu|bluetoothAddress)\"\\s*:\\s*\"[^\"]*\""), "\"$1\":\"…\"")
             return "$head " + Redactor.redact(json).take(1500)

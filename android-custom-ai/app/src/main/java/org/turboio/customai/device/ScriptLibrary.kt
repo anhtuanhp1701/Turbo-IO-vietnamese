@@ -55,7 +55,7 @@ class ScriptLibrary(private val dir: File, private val clock: () -> Long = Syste
         fun listMessage(items: List<Script>, timezoneSeconds: Int): String {
             val a = JSONArray()
             items.forEach {
-                a.put(JSONObject().put("did", it.did).put("pin", false).put("title", it.title.ifBlank { "Roteiro" }).put("offset", 0).put("scroll", 2)
+                a.put(JSONObject().put("did", it.did).put("pin", false).put("title", it.title.ifBlank { "Kịch bản" }).put("offset", 0).put("scroll", 2)
                     .put("total", it.total).put("timestamp", it.timestamp).put("preview", it.preview).put("timezone", timezoneSeconds))
             }
             return JSONObject().put("action", 2).put("type", 1).put("total", items.size)

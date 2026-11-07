@@ -24,7 +24,7 @@ import kotlin.coroutines.resume
 /** Sends one envelope; returns null on accepted radio write or a pt-BR failure reason. */
 suspend fun GlassesPort.sendEnvelope(business: Int, type: Int, json: String): String? =
     suspendCancellableCoroutine { cont ->
-        val envelope = try { EnvelopeCodec.encode(type, json) } catch (e: Exception) { cont.resume("Mensagem inválida: ${e.message}"); return@suspendCancellableCoroutine }
+        val envelope = try { EnvelopeCodec.encode(type, json) } catch (e: Exception) { cont.resume("Tin nhắn không hợp lệ: ${e.message}"); return@suspendCancellableCoroutine }
         send(business, envelope) { error -> if (cont.isActive) cont.resume(error) }
     }
 
@@ -101,10 +101,10 @@ class LensDisplay(
     fun stop() { scope.launch { job?.cancel(); closeSession() } }
 
     private suspend fun run(raw: String, settings: DisplaySettings): String? {
-        if (!port.isReady) return fail("Óculos não conectado")
+        if (!port.isReady) return fail("Chưa kết nối kính")
         val text = DisplayText.clean(raw, settings.stripAccents)
         val pages = DisplayText.pages(text, settings.pageChars.coerceIn(20, 96))
-        if (pages.isEmpty()) return fail("Nada para exibir")
+        if (pages.isEmpty()) return fail("Không có gì để hiển thị")
         if (sid.isNotEmpty()) closeSession()
         _state.value = DisplayState.Opening(pages.size)
         DiagnosticLog.i("LENS", "abrindo exibição: ${pages.size} página(s), ${text.length} caracteres")
@@ -120,14 +120,14 @@ class LensDisplay(
         }
         delay(if (session) 300 else 1200)  // with the preview the glasses open their Subtitles app at the same moment; text sent at once may be lost
         for ((index, page) in pages.withIndex()) {
-            if (closedByGlasses) { sid = ""; lastSession = ""; return fail("Exibição encerrada nos óculos") }
+            if (closedByGlasses) { sid = ""; lastSession = ""; return fail("Kính đã đóng phần hiển thị") }
             val total = if (index == pages.lastIndex) settings.lingerSeconds * 1000L else settings.pageSeconds * 1000L
             var shown = 0L
             while (shown < total) {
-                if (closedByGlasses) { sid = ""; lastSession = ""; return fail("Exibição encerrada nos óculos") }
+                if (closedByGlasses) { sid = ""; lastSession = ""; return fail("Kính đã đóng phần hiển thị") }
                 // Caption formats: the page first as a sentence in progress (status 0), then final on every re-send.
                 port.sendEnvelope(Business.SUBTITLE, 5, Commands.displayText(sid, page, format, final = shown > 0 || !settings.resend))
-                    ?.let { closeSession(); return fail("Falha ao enviar texto: $it") }
+                    ?.let { closeSession(); return fail("Gửi chữ thất bại: $it") }
                 if (shown == 0L) _state.value = DisplayState.Showing(index + 1, pages.size, page)
                 val step = if (settings.resend) minOf(2000L, total - shown) else total - shown
                 delay(step); shown += step
@@ -149,7 +149,7 @@ class LensDisplay(
         val waiter = CompletableDeferred<Int>().also { ack = it }
         val error = port.sendEnvelope(Business.SUBTITLE, 7, Commands.displayStart(sid, settings.fontSize, settings.position, settings.maxLines, persist = true))
         val code = if (error == null) withTimeoutOrNull(5_000) { waiter.await() } else null
-        DiagnosticLog.i("LENS", "layout salvo nos óculos: ${code?.let { "código $it" } ?: error ?: "sem resposta"}")
+        DiagnosticLog.i("LENS", "layout salvo nos óculos: ${code?.let { "código $it" } ?: error ?: "không có phản hồi"}")
         if (code == 1 || code == 2) savedLayout = layout
         sid = ""; ack = null
     }
@@ -177,15 +177,15 @@ class LensDisplay(
 
     /** 19/7 display preview with the chosen layout (the older path); null when open, else the failure reason. */
     private suspend fun openPreview(settings: DisplaySettings): String? {
-        var code = open(settings.fontSize, settings.position, settings.maxLines) ?: return fail("Falha ao abrir exibição")
+        var code = open(settings.fontSize, settings.position, settings.maxLines) ?: return fail("Không mở được phần hiển thị")
         if (code != 1 && code != 2 && !settings.standardLayout) {
             // Experimental layout refused: fall back to the layout known to work.
             DiagnosticLog.w("LENS", "layout tamanho=${settings.fontSize} posição=${settings.position} linhas=${settings.maxLines} recusado ($code); usando o padrão")
             closeSession()
-            code = open(2, "center", 5) ?: return fail("Falha ao abrir exibição")
+            code = open(2, "center", 5) ?: return fail("Không mở được phần hiển thị")
         }
-        if (code == -1) { closeSession(); return fail("Os óculos não confirmaram a exibição (10 s)") }
-        if (code != 1 && code != 2) { closeSession(); return fail("Os óculos recusaram a exibição (código $code)") }
+        if (code == -1) { closeSession(); return fail("Kính không xác nhận hiển thị (10 giây)") }
+        if (code != 1 && code != 2) { closeSession(); return fail("Kính từ chối hiển thị (mã $code)") }
         return null
     }
 

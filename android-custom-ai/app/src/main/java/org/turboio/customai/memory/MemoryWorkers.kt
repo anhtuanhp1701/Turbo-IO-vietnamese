@@ -74,11 +74,11 @@ class MemoryWorker(context: Context, params: WorkerParameters) : CoroutineWorker
                 val q = app.memoryQueries
                 val text = fresh.take(5).joinToString("\n") { "• " + q.line(it, now) }
                 val single = fresh.singleOrNull()
-                if (s.notifyNew) MemoryNotifier.show(app, "memory_new", "Novas pendências", 7400,
-                    if (single != null) "Nova pendência" else "${run.newItems.size} novas pendências", text,
-                    actions = if (single == null) emptyList() else listOf(MemoryNotifier.Action("Feita", ItemActionReceiver.DONE, single.id),
-                        MemoryNotifier.Action("Descartar", ItemActionReceiver.DISMISS, single.id)))
-                if (s.lensNew) MemoryNotifier.lens(app, fresh.take(2).joinToString("; ") { q.line(it, now) }, "Anotado")
+                if (s.notifyNew) MemoryNotifier.show(app, "memory_new", "Việc mới", 7400,
+                    if (single != null) "Việc mới" else "${run.newItems.size} việc mới", text,
+                    actions = if (single == null) emptyList() else listOf(MemoryNotifier.Action("Xong", ItemActionReceiver.DONE, single.id),
+                        MemoryNotifier.Action("Bỏ", ItemActionReceiver.DISMISS, single.id)))
+                if (s.lensNew) MemoryNotifier.lens(app, fresh.take(2).joinToString("; ") { q.line(it, now) }, "Đã ghi lại")
             }
             Reminders.sync(app)
             app.memoryChanged()
@@ -95,8 +95,8 @@ class MemoryWorker(context: Context, params: WorkerParameters) : CoroutineWorker
         val kept = ArrayList<Item>()
         items.forEachIndexed { i, item ->
             if (i >= 3) { kept.add(item); return@forEachIndexed }
-            val answer = app.suggestions.ask("Anotar pendência?", app.memoryQueries.line(item, now), "Memória")
-            if (answer == org.turboio.customai.device.SuggestionCards.Answer.NO) app.memoryStore.setStatus(item.id, ItemStatus.DISMISSED, System.currentTimeMillis(), "recusada nos óculos")
+            val answer = app.suggestions.ask("Ghi lại việc này?", app.memoryQueries.line(item, now), "Bộ nhớ")
+            if (answer == org.turboio.customai.device.SuggestionCards.Answer.NO) app.memoryStore.setStatus(item.id, ItemStatus.DISMISSED, System.currentTimeMillis(), "đã từ chối trên kính")
             else kept.add(item)
         }
         return kept
@@ -130,9 +130,9 @@ class ReminderWorker(context: Context, params: WorkerParameters) : CoroutineWork
         val now = System.currentTimeMillis()
         if ((item.snoozeUntil ?: 0) > now + 60_000) return Result.success()      // snoozed again meanwhile
         val line = app.memoryQueries.line(item, now)
-        MemoryNotifier.show(app, "memory_reminder", "Lembretes", reminderNotification(id), "Lembrete", line, NotificationManager.IMPORTANCE_HIGH,
-            listOf(MemoryNotifier.Action("Feita", ItemActionReceiver.DONE, id), MemoryNotifier.Action("Adiar 1 h", ItemActionReceiver.SNOOZE, id)))
-        MemoryNotifier.lens(app, line, "Lembrete")
+        MemoryNotifier.show(app, "memory_reminder", "Lời nhắc", reminderNotification(id), "Lời nhắc", line, NotificationManager.IMPORTANCE_HIGH,
+            listOf(MemoryNotifier.Action("Xong", ItemActionReceiver.DONE, id), MemoryNotifier.Action("Hoãn 1 giờ", ItemActionReceiver.SNOOZE, id)))
+        MemoryNotifier.lens(app, line, "Lời nhắc")
         app.memoryStore.updateItem(item.copy(remindedAt = now, snoozeUntil = null, updatedAt = item.updatedAt))
         DiagnosticLog.i("MEMORIA", "lembrete exibido (#$id)")
         return Result.success()
@@ -153,7 +153,7 @@ class ItemActionReceiver : android.content.BroadcastReceiver() {
                 val now = System.currentTimeMillis()
                 val item = app.memoryStore.item(id)
                 if (item != null && item.status == ItemStatus.OPEN) when (intent.action) {
-                    DONE -> app.memoryStore.setStatus(id, ItemStatus.DONE, now, "marcada na notificação")
+                    DONE -> app.memoryStore.setStatus(id, ItemStatus.DONE, now, "đã đánh dấu từ thông báo")
                     DISMISS -> app.memoryStore.setStatus(id, ItemStatus.DISMISSED, now)
                     SNOOZE -> {
                         val until = now + 3600_000L
@@ -202,8 +202,8 @@ class MorningWorker(context: Context, params: WorkerParameters) : CoroutineWorke
         val app = applicationContext as TurboApp
         if (!app.settings.memorySettings().morning) return Result.success()
         val text = app.memoryQueries.morningBrief(System.currentTimeMillis()) ?: return Result.success()
-        MemoryNotifier.show(app, "memory_morning", "Resumo da manhã", 7401, "Seu dia", text)
-        MemoryNotifier.lens(app, text, "Bom dia")
+        MemoryNotifier.show(app, "memory_morning", "Tóm tắt buổi sáng", 7401, "Ngày của bạn", text)
+        MemoryNotifier.lens(app, text, "Chào buổi sáng")
         return Result.success()
     }
 }
@@ -216,7 +216,7 @@ class WeeklyWorker(context: Context, params: WorkerParameters) : CoroutineWorker
         if (!s.weekly || LocalDateTime.now().dayOfWeek.value != s.weeklyDow) return Result.success()
         return try {
             val w = app.weeklyReview(force = true) ?: return Result.success()
-            MemoryNotifier.show(app, "memory_weekly", "Revisão semanal", 7402, "Revisão da semana", w.text)
+            MemoryNotifier.show(app, "memory_weekly", "Tổng kết tuần", 7402, "Tổng kết tuần này", w.text)
             Result.success()
         } catch (e: Exception) {
             DiagnosticLog.w("MEMORIA", "revisão semanal falhou: ${TurboApp.friendly(e)}")

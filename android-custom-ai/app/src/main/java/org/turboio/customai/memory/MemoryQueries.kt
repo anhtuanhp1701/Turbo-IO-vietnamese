@@ -17,19 +17,19 @@ import java.util.Locale
 
 object QueryPrompts {
     const val PLAN = """Você transforma uma pergunta sobre o diário pessoal em parâmetros de busca. Responda APENAS com JSON:
-{"termos": ["5 a 10 palavras ou expressões curtas: as da pergunta e sinônimos/variações prováveis em português"],
+{"termos": ["5 a 10 palavras ou expressões curtas: as da pergunta e sinônimos/variações prováveis em vietnamita (tiếng Việt), com e sem acentos"],
  "de": "AAAA-MM-DD ou vazio", "ate": "AAAA-MM-DD ou vazio", "pessoa": "nome citado ou vazio"}
 Calcule o período a partir da data de hoje informada ("semana passada", "ontem", "em setembro"…). Sem período, deixe vazio."""
 
     const val ANSWER = """Você responde perguntas sobre o diário pessoal do usuário usando SOMENTE os registros fornecidos.
-Português do Brasil, curto (até 3 frases), citando data e hora (dd/MM HH:MM) de onde veio cada informação.
+Em vietnamita (tiếng Việt), curto (até 3 frases), citando data e hora (dd/MM HH:MM) de onde veio cada informação.
 Se os registros não responderem, diga isso em uma frase."""
 
     const val PERSON = """Com base SOMENTE nos dados fornecidos sobre uma pessoa (conversas resumidas, pendências e fatos), responda em
-português do Brasil, em até 3 frases curtas, o que o usuário precisa saber sobre ela agora: o que está pendente e o que
+vietnamita (tiếng Việt), em até 3 frases curtas, o que o usuário precisa saber sobre ela agora: o que está pendente e o que
 foi conversado por último (com data)."""
 
-    const val WEEKLY = """Você faz a revisão semanal do diário pessoal de alguém, usando SOMENTE os dados fornecidos. Português do Brasil.
+    const val WEEKLY = """Você faz a revisão semanal do diário pessoal de alguém, usando SOMENTE os dados fornecidos. Escreva em vietnamita (tiếng Việt).
 Responda APENAS com JSON: {"resumo": "3 a 5 frases", "avancos": [""], "travado": [""], "recorrente": [""],
 "pessoas": ["nome — por quê"], "sugestoes": ["até 3 próximos passos concretos"]}"""
 }
@@ -43,9 +43,11 @@ class MemoryQueries(
 ) {
     private val dm = DateTimeFormatter.ofPattern("dd/MM")
     private val NUMBERS = mapOf("um" to 1, "uma" to 1, "dois" to 2, "duas" to 2, "tres" to 3, "quatro" to 4, "cinco" to 5,
-        "seis" to 6, "sete" to 7, "oito" to 8, "nove" to 9, "dez" to 10)
+        "seis" to 6, "sete" to 7, "oito" to 8, "nove" to 9, "dez" to 10,
+        "mot" to 1, "hai" to 2, "ba" to 3, "bon" to 4, "nam" to 5, "sau" to 6, "bay" to 7, "tam" to 8, "chin" to 9, "muoi" to 10)
     private val VERBS = setOf("fiz", "terminei", "mandei", "enviei", "liguei", "paguei", "comprei", "resolvi", "respondi", "entreguei",
-        "marquei", "agendei", "feita", "feito", "concluida", "pronta", "pendencia", "tarefa")
+        "marquei", "agendei", "feita", "feito", "concluida", "pronta", "pendencia", "tarefa",
+        "toi", "da", "lam", "xong", "gui", "goi", "tra", "mua", "nop", "dat", "hoan", "thanh", "viec")
     private val WEEKDAYS = listOf("seg", "ter", "qua", "qui", "sex", "sáb", "dom")
     private fun stamp(ms: Long) = Instant.ofEpochMilli(ms).atZone(zone).let { it.format(dm) + " " + Days.time(ms, zone) }
 
@@ -54,7 +56,7 @@ class MemoryQueries(
         val d = Instant.ofEpochMilli(due).atZone(zone)
         val today = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
         val day = when (d.toLocalDate()) {
-            today -> "hoje"; today.plusDays(1) -> "amanhã"; today.minusDays(1) -> "ontem"
+            today -> "hôm nay"; today.plusDays(1) -> "ngày mai"; today.minusDays(1) -> "hôm qua"
             else -> WEEKDAYS[d.dayOfWeek.value - 1] + " " + d.format(dm)
         }
         return "$day ${Days.time(due, zone)}"
@@ -75,12 +77,12 @@ class MemoryQueries(
 
     fun pendingList(now: Long, personName: String? = null, max: Int = 5): Listing {
         val person = personName?.let { store.findPerson(it) }
-        if (personName != null && person == null) return Listing("Não conheço ninguém chamado $personName no diário.", emptyList())
+        if (personName != null && person == null) return Listing("Không có ai tên $personName trong nhật ký.", emptyList())
         val items = (if (person != null) store.itemsOf(person.id) else store.openItems()).filter { it.kind != ItemKind.DECISION }
-        if (items.isEmpty()) return Listing(if (person != null) "Nada pendente com ${person.name}." else "Nenhuma pendência aberta.", emptyList())
+        if (items.isEmpty()) return Listing(if (person != null) "Không có việc nào đang chờ với ${person.name}." else "Không có việc nào đang mở.", emptyList())
         val overdue = items.count { (it.dueAt ?: Long.MAX_VALUE) < now }
         val shown = items.take(max)
-        val head = "${items.size} pendência(s)" + (if (overdue > 0) ", $overdue atrasada(s)" else "") + ": "
+        val head = "${items.size} việc" + (if (overdue > 0) ", $overdue quá hạn" else "") + ": "
         return Listing(head + shown.mapIndexed { i, it -> "${i + 1}) ${line(it, now)}" }.joinToString("; "), shown.map { it.id })
     }
 
@@ -113,10 +115,10 @@ class MemoryQueries(
         val todays = open.filter { it.dueAt != null && it.dueAt >= now && it.dueAt < endOfDay }
         val others = open.filter { it !in overdue && it !in todays }.take(3)
         return buildString {
-            append("Bom dia! ")
-            if (todays.isNotEmpty()) append("Hoje: ").append(todays.joinToString("; ") { line(it, now) }).append(". ")
-            if (overdue.isNotEmpty()) append("Atrasadas: ").append(overdue.take(3).joinToString("; ") { line(it, now) }).append(". ")
-            if (others.isNotEmpty()) append("Também pendente: ").append(others.joinToString("; ") { line(it, now) }).append(".")
+            append("Chào buổi sáng! ")
+            if (todays.isNotEmpty()) append("Hôm nay: ").append(todays.joinToString("; ") { line(it, now) }).append(". ")
+            if (overdue.isNotEmpty()) append("Quá hạn: ").append(overdue.take(3).joinToString("; ") { line(it, now) }).append(". ")
+            if (others.isNotEmpty()) append("Cũng đang chờ: ").append(others.joinToString("; ") { line(it, now) }).append(".")
         }.trim()
     }
 
@@ -124,18 +126,18 @@ class MemoryQueries(
     fun personCard(p: Person, now: Long): String = buildString {
         append(p.name)
         if (p.relation.isNotBlank()) append(" — ").append(p.relation)
-        append("\n").append(p.conversations).append(" conversa(s)")
-        if (p.lastSeen > 0) append(" · última em ").append(stamp(p.lastSeen))
-        if (p.aliases.isNotEmpty()) append("\nTambém chamada de: ").append(p.aliases.joinToString())
+        append("\n").append(p.conversations).append(" cuộc trò chuyện")
+        if (p.lastSeen > 0) append(" · lần gần nhất ").append(stamp(p.lastSeen))
+        if (p.aliases.isNotEmpty()) append("\nCòn được gọi là: ").append(p.aliases.joinToString())
         if (p.facts.isNotEmpty()) { append("\n\nFatos:"); p.facts.takeLast(8).forEach { append("\n- ").append(it) } }
         val items = store.itemsOf(p.id)
-        if (items.isNotEmpty()) { append("\n\nPendências:"); items.take(8).forEach { append("\n- ").append(line(it, now)) } }
+        if (items.isNotEmpty()) { append("\n\nViệc cần làm:"); items.take(8).forEach { append("\n- ").append(line(it, now)) } }
         val blocks = store.blocksOf(p.id, 6).filter { it.summary.isNotBlank() }
-        if (blocks.isNotEmpty()) { append("\n\nÚltimas conversas:"); blocks.forEach { append("\n- ").append(stamp(it.tsStart)).append(": ").append(it.summary) } }
+        if (blocks.isNotEmpty()) { append("\n\nCuộc trò chuyện gần đây:"); blocks.forEach { append("\n- ").append(stamp(it.tsStart)).append(": ").append(it.summary) } }
     }
 
     suspend fun personAnswer(name: String, now: Long): String {
-        val p = store.findPerson(name) ?: return "Não conheço ninguém chamado $name no diário."
+        val p = store.findPerson(name) ?: return "Không có ai tên $name trong nhật ký."
         return llm.complete(QueryPrompts.PERSON, personCard(p, now), 400).trim()
     }
 
@@ -162,7 +164,7 @@ class MemoryQueries(
         }
         val blocks = (if (plan.from != null || plan.to != null) store.blocks(plan.from ?: "0000-00-00", plan.to ?: "9999-99-99") else emptyList())
             .filter { b -> b.summary.isNotBlank() && plan.terms.any { t -> tokens(b.summary).intersect(tokens(t)).isNotEmpty() } }.take(10)
-        if (hits.isEmpty() && blocks.isEmpty()) return "Não encontrei nada no diário sobre isso" + (if (plan.from != null) " nesse período." else ".")
+        if (hits.isEmpty() && blocks.isEmpty()) return "Không tìm thấy gì trong nhật ký về việc này" + (if (plan.from != null) " trong khoảng thời gian đó." else ".")
         val context = buildString {
             blocks.forEach { append("[").append(stamp(it.tsStart)).append("] resumo da conversa: ").append(it.summary).append('\n') }
             hits.take(40).sortedBy { it.tsStart }.forEach { e ->
@@ -187,8 +189,8 @@ class MemoryQueries(
         val items = store.itemsBetween(from, to)
         if (blocks.isEmpty() && items.isEmpty()) return null
         val context = buildString {
-            append("Semana de ").append(Days.label(days.first())).append(" a ").append(Days.label(days.last())).append('\n')
-            days.forEach { d -> dailies(d)?.let { append("\nResumo de ").append(Days.label(d)).append(": ").append(it.text.take(800)).append('\n') } }
+            append("Tuần ").append(Days.label(days.first())).append(" a ").append(Days.label(days.last())).append('\n')
+            days.forEach { d -> dailies(d)?.let { append("\nTóm tắt ").append(Days.label(d)).append(": ").append(it.text.take(800)).append('\n') } }
             append("\nConversas relevantes:\n"); blocks.take(60).forEach { append("- ").append(stamp(it.tsStart)).append(" [").append(it.category).append("] ").append(it.summary).append('\n') }
             append("\nPendências criadas/concluídas:\n"); items.forEach { append("- [").append(it.status.id).append("] ").append(line(it, now)).append('\n') }
             val people = store.people().filter { it.lastSeen >= from }.sortedByDescending { it.conversations }.take(10)
@@ -205,7 +207,7 @@ class MemoryQueries(
             val list = (0 until a.length()).map { a.optString(it).trim() }.filter { it.isNotEmpty() }
             if (list.isNotEmpty()) { append('\n').append(title).append('\n'); list.forEach { append("- ").append(it).append('\n') } }
         }
-        section("Avanços", "avancos"); section("Travado", "travado"); section("Recorrente", "recorrente")
-        section("Pessoas", "pessoas"); section("Sugestões", "sugestoes")
+        section("Tiến triển", "avancos"); section("Travado", "travado"); section("Recorrente", "recorrente")
+        section("Mọi người", "pessoas"); section("Gợi ý", "sugestoes")
     }.trim()
 }

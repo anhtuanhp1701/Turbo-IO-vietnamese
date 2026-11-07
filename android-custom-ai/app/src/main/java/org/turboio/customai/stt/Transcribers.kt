@@ -45,33 +45,33 @@ interface BatchTranscriber {
 }
 
 private fun checkHttps(url: String) {
-    val uri = try { URI(url) } catch (_: Exception) { throw SttException("Endpoint de transcrição inválido") }
+    val uri = try { URI(url) } catch (_: Exception) { throw SttException("Địa chỉ chép lời không hợp lệ") }
     if (!"https".equals(uri.scheme, true) || uri.host.isNullOrBlank() || uri.rawUserInfo != null || uri.rawQuery != null) {
-        throw SttException("Endpoint de transcrição deve ser HTTPS, sem parâmetros")
+        throw SttException("Địa chỉ chép lời phải là HTTPS, không có tham số")
     }
 }
 
 private suspend fun <T> timed(seconds: Int, block: () -> T): T = try {
     withTimeout(seconds * 1000L) { runInterruptible(Dispatchers.IO) { block() } }
 } catch (_: TimeoutCancellationException) {
-    throw SttException("Tempo esgotado na transcrição")
+    throw SttException("Hết thời gian chép lời")
 } catch (e: IOException) {
-    throw SttException("Falha de rede na transcrição (${e.javaClass.simpleName})")
+    throw SttException("Lỗi mạng khi chép lời (${e.javaClass.simpleName})")
 }
 
 private fun error(service: String, status: Int, body: String): SttException {
     val detail = try { JSONObject(body).optJSONObject("error")?.optString("message").orEmpty() } catch (_: Exception) { "" }
     if (detail.contains("API keys are not supported", ignoreCase = true))
-        return SttException("$service: esta chave não serve para esta API (chave do Gemini/AI Studio?). Use uma chave de API do Google Cloud " +
-            "com o Speech-to-Text ativado, ou escolha “Microfone dos óculos → Deepgram” (HTTP $status)")
-    val summary = when (status) { 401 -> "chave inválida"; 403 -> "sem permissão (ative a API)"; 429 -> "cota excedida"; else -> "erro" }
+        return SttException("$service: khóa này không dùng được cho API này (khóa Gemini/AI Studio?). Hãy dùng khóa API Google Cloud " +
+            "đã bật Speech-to-Text, hoặc chọn “Mic kính → Deepgram” (HTTP $status)")
+    val summary = when (status) { 401 -> "khóa không hợp lệ"; 403 -> "không có quyền (hãy bật API)"; 429 -> "vượt hạn mức"; else -> "lỗi" }
     return SttException("$service: $summary (HTTP $status)" + Redactor.redact(detail).take(120).let { if (it.isNotEmpty()) " · $it" else "" })
 }
 
 /** OpenAI /v1/audio/transcriptions (multipart WAV). Also works with compatible servers (e.g. Groq). */
 class OpenAiTranscriber(private val config: SttConfig, private val apiKey: String, private val timeoutSeconds: Int = 30) : BatchTranscriber {
     override suspend fun transcribe(pcm: ByteArray): String {
-        if (apiKey.isBlank()) throw SttException("Informe a chave da API de transcrição")
+        if (apiKey.isBlank()) throw SttException("Hãy nhập khóa API chép lời")
         checkHttps(config.openAiEndpoint)
         val boundary = "----turboio" + System.nanoTime()
         val body = ByteArrayOutputStream()
@@ -97,7 +97,7 @@ class OpenAiTranscriber(private val config: SttConfig, private val apiKey: Strin
             } finally { c.disconnect() }
         }
         DiagnosticLog.i("STT", "OpenAI HTTP $status em ${System.currentTimeMillis() - started} ms (${pcm.size / 32} ms de áudio)")
-        if (status !in 200..299) throw error("Transcrição OpenAI", status, text)
+        if (status !in 200..299) throw error("Chép lời OpenAI", status, text)
         return JSONObject(text).optString("text").trim()
     }
 }
@@ -105,7 +105,7 @@ class OpenAiTranscriber(private val config: SttConfig, private val apiKey: Strin
 /** Deepgram pre-recorded /v1/listen (Nova-3, configured language) with the utterance as WAV; same key as the ambient transcription. */
 class DeepgramSpeechTranscriber(private val config: SttConfig, private val apiKey: String, private val timeoutSeconds: Int = 30) : BatchTranscriber {
     override suspend fun transcribe(pcm: ByteArray): String {
-        if (apiKey.isBlank()) throw SttException("Informe a chave da Deepgram (aba IA → Transcrição do ambiente)")
+        if (apiKey.isBlank()) throw SttException("Hãy nhập khóa Deepgram (tab AI → Ghi âm môi trường)")
         val started = System.currentTimeMillis()
         val (status, text) = timed(timeoutSeconds) {
             val c = URL("https://api.deepgram.com/v1/listen?model=nova-3&language=${config.language}&smart_format=true&punctuate=true").openConnection() as HttpURLConnection
@@ -147,8 +147,8 @@ class DeepgramSpeechTranscriber(private val config: SttConfig, private val apiKe
 /** Gemini generateContent with the utterance as inline WAV audio; same key and model as the AI provider. */
 class GeminiSpeechTranscriber(private val config: SttConfig, private val apiKey: String, private val model: String, private val timeoutSeconds: Int = 30) : BatchTranscriber {
     override suspend fun transcribe(pcm: ByteArray): String {
-        if (apiKey.isBlank()) throw SttException("Informe a chave do Gemini na aba IA (provedor Google Gemini)")
-        if (!Regex("^[A-Za-z0-9._-]{1,80}$").matches(model)) throw SttException("Modelo do Gemini inválido")
+        if (apiKey.isBlank()) throw SttException("Hãy nhập khóa Gemini ở tab AI (nhà cung cấp Google Gemini)")
+        if (!Regex("^[A-Za-z0-9._-]{1,80}$").matches(model)) throw SttException("Model Gemini không hợp lệ")
         val body = JSONObject().put("contents", org.json.JSONArray().put(JSONObject().put("role", "user").put("parts", org.json.JSONArray()
             .put(JSONObject().put("text", PROMPT.format(config.language)))
             .put(JSONObject().put("inline_data", JSONObject().put("mime_type", "audio/wav")
@@ -188,7 +188,7 @@ class GeminiSpeechTranscriber(private val config: SttConfig, private val apiKey:
 /** Google Cloud Speech-to-Text v1 speech:recognize (synchronous, ≤ 60 s), API key in header. */
 class GoogleSpeechTranscriber(private val config: SttConfig, private val apiKey: String, private val timeoutSeconds: Int = 30) : BatchTranscriber {
     override suspend fun transcribe(pcm: ByteArray): String {
-        if (apiKey.isBlank()) throw SttException("Informe a chave do Google Cloud Speech-to-Text")
+        if (apiKey.isBlank()) throw SttException("Hãy nhập khóa Google Cloud Speech-to-Text")
         val payload = JSONObject()
             .put("config", JSONObject().put("encoding", "LINEAR16").put("sampleRateHertz", 16000)
                 .put("languageCode", config.language).put("enableAutomaticPunctuation", true))

@@ -37,20 +37,20 @@ data class DayInsight(
         fun section(title: String, items: List<String>) {
             if (items.isNotEmpty()) { append("\n").append(title).append("\n"); items.forEach { append("- ").append(it).append("\n") } }
         }
-        section("Destaques", destaques)
+        section("Điểm nổi bật", destaques)
         section("Tarefas", tarefas)
-        section("Decisões", decisoes)
-        section("Compromissos", compromissos.map { if (it.quando.isNotBlank()) "${it.quando}: ${it.oQue}" else it.oQue })
-        section("Pessoas", pessoas)
-        section("Tópicos", topicos)
-        section("Citações", citacoes)
+        section("Quyết định", decisoes)
+        section("Cam kết", compromissos.map { if (it.quando.isNotBlank()) "${it.quando}: ${it.oQue}" else it.oQue })
+        section("Mọi người", pessoas)
+        section("Chủ đề", topicos)
+        section("Trích dẫn", citacoes)
     }.trim()
 
     /** Short version for the lenses (≈ 3 pages). */
     fun lens(maxChars: Int = 270): String {
         val parts = ArrayList<String>()
         if (resumo.isNotBlank()) parts.add(resumo.trim())
-        if (tarefas.isNotEmpty()) parts.add("Tarefas: " + tarefas.take(3).joinToString("; "))
+        if (tarefas.isNotEmpty()) parts.add("Việc: " + tarefas.take(3).joinToString("; "))
         val text = parts.joinToString(" ")
         return if (text.length <= maxChars) text else text.take(maxChars - 1).trimEnd() + "…"
     }
@@ -94,20 +94,20 @@ object InsightPrompts {
     private const val SCHEMA = """{"resumo": "3 a 5 frases", "destaques": ["até 3 itens"], "topicos": [], "tarefas": ["ação a fazer, com responsável se houver"], "decisoes": [], "compromissos": [{"quando": "data/hora mencionada ou vazio", "o_que": ""}], "pessoas": ["nomes citados"], "citacoes": ["até 3 frases marcantes, literais"]}"""
 
     val MAP = """Você analisa registros do diário pessoal de uma pessoa (perguntas que ela fez a um assistente de IA, respostas e transcrições de conversas do ambiente).
-Extraia somente o que estiver nos registros; não invente nada. Use português do Brasil.
+Extraia somente o que estiver nos registros; não invente nada. Escreva todo o texto em vietnamita (tiếng Việt).
 Responda APENAS com um objeto JSON válido, sem Markdown, exatamente neste formato:
 $SCHEMA
 Use listas vazias quando não houver itens. "Você" nos registros é a dona/o dono do diário."""
 
     val REDUCE = """Você recebe análises parciais (JSON) de um mesmo dia do diário de uma pessoa, em ordem cronológica.
 Una tudo em um único relatório do dia: elimine duplicatas, mantenha os itens mais relevantes, escreva um "resumo" novo de 3 a 5 frases cobrindo o dia todo e escolha até 3 "destaques".
-Não invente nada. Português do Brasil. Responda APENAS com um objeto JSON válido neste formato:
+Não invente nada. Escreva todo o texto em vietnamita (tiếng Việt). Responda APENAS com um objeto JSON válido neste formato:
 $SCHEMA"""
 
     const val RETRY = "Sua resposta anterior não era um JSON válido. Responda novamente APENAS com o objeto JSON pedido, sem nenhum texto antes ou depois."
 
     const val SEARCH = """Você responde perguntas sobre o diário pessoal do usuário usando SOMENTE os registros fornecidos.
-Responda em português do Brasil, de forma curta (até 3 frases), citando o horário (HH:MM) quando útil.
+Responda em vietnamita (tiếng Việt), de forma curta (até 3 frases), citando o horário (HH:MM) quando útil.
 Se os registros não responderem à pergunta, diga isso em uma frase."""
 }
 
@@ -169,7 +169,7 @@ class InsightEngine(
     suspend fun day(day: String, force: Boolean = false): Result {
         val excluded = exclude(day)
         val entries = store.day(day).filter { !it.metaJson.contains("\"journal_query\":true") && it.id !in excluded }
-        if (entries.isEmpty()) return Result(DayInsight(resumo = "Nenhum registro em ${Days.label(day)}."), "Nenhum registro em ${Days.label(day)}.", true, 0)
+        if (entries.isEmpty()) return Result(DayInsight(resumo = "Không có ghi chép nào vào ${Days.label(day)}."), "Không có ghi chép nào vào ${Days.label(day)}.", true, 0)
         val (provider, model) = modelTag()
         val windows = windows(entries)
         val dayHash = hash(InsightPrompts.VERSION, provider, model, *windows.toTypedArray())
@@ -183,7 +183,7 @@ class InsightEngine(
             cached ?: run {
                 DiagnosticLog.i("INSIGHT", "analisando bloco ${i + 1}/${windows.size} (${w.length} caracteres)")
                 val partial = structured(InsightPrompts.MAP, header + "Registros (bloco ${i + 1} de ${windows.size}):\n" + w)
-                    ?: DayInsight(resumo = "Bloco ${i + 1}: análise indisponível (resposta inválida do modelo).")
+                    ?: DayInsight(resumo = "Khối ${i + 1}: không phân tích được (model trả lời không hợp lệ).")
                 store.saveInsight(StoredInsight(day, "partial", wHash, partial.toJson(), partial.render(), provider, model, now()))
                 partial
             }
@@ -213,8 +213,8 @@ class InsightEngine(
     /** "O que eu falei sobre X?" — full-text retrieval + grounded short answer. */
     suspend fun ask(question: String, term: String, day: String?): String {
         val hits = store.search(term, day, 20).filter { !it.metaJson.contains("\"journal_query\":true") }.sortedBy { it.tsStart }
-        val where = if (day != null) "em ${Days.label(day)}" else "no diário"
-        if (hits.isEmpty()) return "Não encontrei registros sobre \"$term\" $where."
+        val where = if (day != null) "vào ${Days.label(day)}" else "trong nhật ký"
+        if (hits.isEmpty()) return "Không tìm thấy ghi chép nào về \"$term\" $where."
         val context = hits.joinToString("\n") { "${Days.label(it.day)} ${format(it)}" }
         return llm.complete(InsightPrompts.SEARCH, "Registros:\n$context\n\nPergunta: $question", 400).trim()
     }

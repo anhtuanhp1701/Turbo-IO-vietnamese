@@ -30,10 +30,10 @@ class NativeNotifier(
     private val clock: () -> Long = System::currentTimeMillis,
 ) : BusinessListener {
     enum class Outcome(val label: String) {
-        SHOWN("exibida"), IDLE("aceita (sem exibição confirmada)"), NOT_WORN("óculos fora do rosto"), DND("modo não perturbe"),
-        BUSY("óculos ocupados"),
+        SHOWN("exibida"), IDLE("đã nhận (chưa xác nhận hiển thị)"), NOT_WORN("kính không đeo trên mặt"), DND("chế độ không làm phiền"),
+        BUSY("kính đang bận"),
         /** Strix OS 1.0.5.5 shows the card but sends no state answer (feature test, 2026-10-17). */
-        NO_REPLY("enviado (estes óculos não confirmam a exibição)"), FAILED("falha no envio");
+        NO_REPLY("đã gửi (kính này không xác nhận hiển thị)"), FAILED("gửi thất bại");
         val delivered get() = this == SHOWN || this == IDLE || this == NO_REPLY
     }
 

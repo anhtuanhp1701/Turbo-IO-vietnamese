@@ -14,8 +14,8 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 enum class AmbientProvider(val id: String, val label: String, val policy: ChunkPolicy) {
-    DEEPGRAM("deepgram", "Deepgram Nova-3 (separa falantes)", ChunkPolicy.DEEPGRAM),
-    OPENAI("openai", "OpenAI (sem separação de falantes)", ChunkPolicy.WHISPER);
+    DEEPGRAM("deepgram", "Deepgram Nova-3 (tách người nói)", ChunkPolicy.DEEPGRAM),
+    OPENAI("openai", "OpenAI (không tách người nói)", ChunkPolicy.WHISPER);
     companion object { fun of(id: String?) = entries.firstOrNull { it.id == id } ?: DEEPGRAM }
 }
 
@@ -46,14 +46,14 @@ private suspend fun call(http: RawHttp, url: String, headers: Map<String, String
     val timeout = (60_000 + audioMs / 2).coerceAtMost(600_000)
     return try {
         withTimeout(timeout) { runInterruptible(Dispatchers.IO) { http.post(url, headers, body, timeout.toInt()) } }
-    } catch (_: TimeoutCancellationException) { throw TranscriptionException("Tempo esgotado na transcrição", permanent = false) }
-    catch (e: IOException) { throw TranscriptionException("Falha de rede na transcrição (${e.javaClass.simpleName})", permanent = false) }
+    } catch (_: TimeoutCancellationException) { throw TranscriptionException("Hết thời gian chép lời", permanent = false) }
+    catch (e: IOException) { throw TranscriptionException("Lỗi mạng khi chép lời (${e.javaClass.simpleName})", permanent = false) }
 }
 
 private fun failure(service: String, status: Int, body: String): TranscriptionException {
     val detail = try { JSONObject(body).let { o -> o.optString("err_msg").ifEmpty { o.optJSONObject("error")?.optString("message").orEmpty() } } } catch (_: Exception) { "" }
     val permanent = status in setOf(400, 401, 402, 403, 404, 413, 415)
-    val summary = when (status) { 401 -> "chave inválida"; 402 -> "sem créditos"; 403 -> "sem permissão"; 429 -> "limite de uso"; else -> "erro" }
+    val summary = when (status) { 401 -> "khóa không hợp lệ"; 402 -> "hết tín dụng"; 403 -> "không có quyền"; 429 -> "vượt giới hạn"; else -> "lỗi" }
     return TranscriptionException("$service: $summary (HTTP $status)" + Redactor.redact(detail).take(140).let { if (it.isNotEmpty()) " · $it" else "" }, permanent)
 }
 
@@ -64,7 +64,7 @@ class DeepgramTranscriber(private val apiKey: String, private val model: String 
         "&diarize=true&utterances=true&smart_format=true&punctuate=true"
 
     override suspend fun transcribe(oggOpus: ByteArray, audioMs: Long): ChunkTranscript {
-        if (apiKey.isBlank()) throw TranscriptionException("Informe a chave da Deepgram", permanent = true)
+        if (apiKey.isBlank()) throw TranscriptionException("Hãy nhập khóa Deepgram", permanent = true)
         val started = System.currentTimeMillis()
         val (status, body) = call(http, url(), mapOf("Authorization" to "Token $apiKey", "Content-Type" to "audio/ogg"), oggOpus, audioMs)
         DiagnosticLog.i("AMBIENTE", "Deepgram HTTP $status em ${System.currentTimeMillis() - started} ms (${audioMs / 1000} s de áudio)")
@@ -95,7 +95,7 @@ class DeepgramTranscriber(private val apiKey: String, private val model: String 
 class OpenAiAmbientTranscriber(private val apiKey: String, private val model: String = "gpt-4o-mini-transcribe",
                                private val http: RawHttp = urlConnectionHttp, private val language: String = "vi") : AmbientTranscriber {
     override suspend fun transcribe(oggOpus: ByteArray, audioMs: Long): ChunkTranscript {
-        if (apiKey.isBlank()) throw TranscriptionException("Informe a chave da OpenAI", permanent = true)
+        if (apiKey.isBlank()) throw TranscriptionException("Hãy nhập khóa OpenAI", permanent = true)
         val verbose = model.startsWith("whisper")
         val boundary = "----turboio" + System.nanoTime()
         val body = ByteArrayOutputStream()

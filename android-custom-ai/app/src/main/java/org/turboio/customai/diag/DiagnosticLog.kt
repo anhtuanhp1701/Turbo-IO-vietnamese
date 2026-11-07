@@ -60,7 +60,7 @@ object Redactor {
 
     /** Masks a secret for display: shows only that a value exists and its last 2 characters. */
     fun mask(secret: String): String = when {
-        secret.isEmpty() -> "(vazio)"
+        secret.isEmpty() -> "(trống)"
         secret.length <= 6 -> "••••"
         else -> "••••" + secret.takeLast(2)
     }

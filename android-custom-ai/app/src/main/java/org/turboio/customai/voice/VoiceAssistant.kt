@@ -47,7 +47,7 @@ data class VoiceSettings(
 
 data class VoiceState(
     val phase: String = "inativo",
-    val note: String = "Assistente de voz aguardando conexão",
+    val note: String = "Trợ lý giọng nói đang chờ kết nối",
     val transcript: String = "",
     val answer: String = "",
     val audioPackets: Int = 0,
@@ -144,7 +144,7 @@ class VoiceAssistant(
         followupEligible = false
         sid = newSid(random)
         val source = input().also { speech = it }
-        update { it.copy(phase = "ouvindo", note = if (source.usesGlassesMic) "Ouvindo pelo microfone dos óculos…" else "Ouvindo pelo microfone do telefone…",
+        update { it.copy(phase = "ouvindo", note = if (source.usesGlassesMic) "Đang nghe bằng micro của kính…" else "Đang nghe bằng micro điện thoại…",
             transcript = if (followup) it.transcript else "", answer = if (followup) it.answer else "", audioPackets = 0, audioMs = 0, lastError = "") }
         job = scope.launch {
             val text = try {
@@ -152,8 +152,8 @@ class VoiceAssistant(
             } catch (e: Exception) {
                 if (token == epoch) {
                     // No speech in the extra round: end it (the previous display deadline belonged to the old round).
-                    if (followup) endRound("Rodada concluída (nova rodada sem fala)", sendExit = true)
-                    else endRound(e.message ?: "Falha no reconhecimento", sendExit = true, error = true)
+                    if (followup) endRound("Xong lượt (lượt mới không có lời nói)", sendExit = true)
+                    else endRound(e.message ?: "Nhận dạng thất bại", sendExit = true, error = true)
                 }
                 return@launch
             }
@@ -170,27 +170,27 @@ class VoiceAssistant(
         val done = CompletableDeferred<EndPointer.State>().also { captured = it }
         val first = CompletableDeferred<Unit>().also { firstAudio = it }
         capturing = true
-        send(2, Commands.recorder(true))?.let { capturing = false; throw IllegalStateException("Início da gravação não enviado: $it") }
-        if (withTimeoutOrNull(6000) { first.await() } == null) { capturing = false; throw IllegalStateException("Nenhum áudio recebido dos óculos em 6 s") }
+        send(2, Commands.recorder(true))?.let { capturing = false; throw IllegalStateException("Chưa gửi được lệnh bắt đầu ghi: $it") }
+        if (withTimeoutOrNull(6000) { first.await() } == null) { capturing = false; throw IllegalStateException("Không nhận được âm thanh từ kính trong 6 giây") }
         val result = withTimeoutOrNull((s.maxSeconds + 5) * 1000L) { done.await() } ?: EndPointer.State.DONE_MAX
         capturing = false
         if (token != epoch) throw IllegalStateException("turno substituído")
         send(2, Commands.recorder(false))
         // Quiet microphones: still try STT when something audible was captured (threshold needs hardware calibration).
         if (result == EndPointer.State.DONE_NO_SPEECH && (endPointer.peakRms < 120 || pcm.durationMs < 800)) {
-            throw IllegalStateException("Não ouvi nenhuma fala")
+            throw IllegalStateException("Không nghe thấy lời nói nào")
         }
-        update { it.copy(phase = "transcrevendo", note = "Transcrevendo ${pcm.durationMs / 1000.0} s de áudio…") }
+        update { it.copy(phase = "transcrevendo", note = "Đang chép lời ${pcm.durationMs / 1000.0} giây âm thanh…") }
         if (source.direct) send(9, Commands.SPEECH_THINKING)
         source.answerAudio(pcm.bytes())?.let { (heard, reply) ->
             pcm.clear()
-            if (heard.isBlank()) throw IllegalStateException("Não entendi. Tente novamente.")
+            if (heard.isBlank()) throw IllegalStateException("Không nghe rõ. Hãy thử lại.")
             directReply = reply
             return heard.trim()
         }
         val text = source.transcribe(pcm.bytes()).trim()
         pcm.clear()
-        if (text.isEmpty()) throw IllegalStateException("Não entendi. Tente novamente.")
+        if (text.isEmpty()) throw IllegalStateException("Không nghe rõ. Hãy thử lại.")
         return text
     }
 
@@ -206,22 +206,22 @@ class VoiceAssistant(
                 if (now - last >= 450) { last = now; send(5, Commands.transcript(Commands.chunks(partial, 100)[0], false)) }
             }
         }.trim() } finally { finished = true }
-        if (text.isEmpty()) throw IllegalStateException("Não entendi. Tente novamente.")
+        if (text.isEmpty()) throw IllegalStateException("Không nghe rõ. Hãy thử lại.")
         return text
     }
 
     private suspend fun respond(token: Long, question: String) {
-        update { it.copy(phase = "processando", note = "Consultando a IA…", transcript = question) }
+        update { it.copy(phase = "processando", note = "Đang hỏi AI…", transcript = question) }
         DiagnosticLog.i("VOZ", "pergunta reconhecida (${question.length} caracteres)")
         send(5, Commands.transcript(Commands.chunks(question, 100)[0], true))
         send(2, Commands.recorder(false))
-        if (CLOSE.matches(question.trim().lowercase())) { endRound("Comando de encerramento reconhecido", sendExit = true); return }
+        if (CLOSE.matches(question.trim().lowercase())) { endRound("Đã nhận lệnh kết thúc", sendExit = true); return }
         followupEligible = true
         val preset = directReply.also { directReply = null }
         if (preset == null) send(9, Commands.SPEECH_THINKING)   // "thinking" on the glasses while the model answers
         val reply = preset ?: try { answer(question) } catch (e: Exception) {
             if (token == epoch) {
-                val reason = e.message ?: "Falha na IA"
+                val reason = e.message ?: "AI gặp lỗi"
                 sendAnswer(token, "Lỗi: ${reason.take(80)}", question)
                 endRound(reason, sendExit = true, error = true, afterMs = 6000)
             }
@@ -231,12 +231,12 @@ class VoiceAssistant(
         val s = settings()
         val clean = DisplayText.clean(reply, s.stripAccents)
         val clipped = if (clean.length > 600) clean.take(560).trimEnd() + "… (xem đầy đủ trên điện thoại)" else clean
-        update { it.copy(answer = clean, note = "Exibindo resposta nos óculos") }
+        update { it.copy(answer = clean, note = "Đang hiển thị câu trả lời trên kính") }
         if (!sendAnswer(token, clipped, question)) return
         speak(clean)
-        update { it.copy(phase = "exibindo", rounds = it.rounds + 1, note = "Resposta enviada; encerra em ${displaySeconds(s, clipped)} s") }
+        update { it.copy(phase = "exibindo", rounds = it.rounds + 1, note = "Đã gửi câu trả lời; kết thúc sau ${displaySeconds(s, clipped)} giây") }
         val linger = displaySeconds(s, clipped) * 1000L
-        displayDeadline = scope.launch { delay(linger); if (token == epoch) endRound("Rodada concluída", sendExit = true) }
+        displayDeadline = scope.launch { delay(linger); if (token == epoch) endRound("Xong lượt", sendExit = true) }
         job = null
     }
 
@@ -248,7 +248,7 @@ class VoiceAssistant(
         for (chunk in Commands.chunks(text, 24)) {
             if (token != epoch) return false
             send(32, Commands.answerChunk(chunk, sid, query, System.currentTimeMillis()))?.let {
-                endRound("Resposta não enviada aos óculos: $it", sendExit = false, error = true); return false
+                endRound("Chưa gửi được câu trả lời lên kính: $it", sendExit = false, error = true); return false
             }
         }
         if (token != epoch) return false
@@ -257,7 +257,7 @@ class VoiceAssistant(
     }
 
     private suspend fun send(type: Int, json: String): String? {
-        if (!port.isReady) return "Óculos não conectado"
+        if (!port.isReady) return "Chưa kết nối kính"
         return port.sendEnvelope(Business.AI_ASSISTANT, type, json)
     }
 
@@ -269,7 +269,7 @@ class VoiceAssistant(
         capturing = false; followupEligible = false
         captured = null; firstAudio = null; pcm.clear()
         if (error) DiagnosticLog.w("VOZ", note) else DiagnosticLog.i("VOZ", note)
-        update { it.copy(phase = "aguardando", note = note, lastError = if (error) note else it.lastError) }
+        update { it.copy(phase = "đang chờ", note = note, lastError = if (error) note else it.lastError) }
         if (sendExit && port.isReady) scope.launch {
             if (afterMs > 0) delay(afterMs)
             if (token != epoch) return@launch
@@ -279,8 +279,8 @@ class VoiceAssistant(
 
     /** Called when the connection changes. */
     fun connectionChanged(ready: Boolean) {
-        if (!ready && busy) endRound("Conexão perdida; rodada interrompida", sendExit = false, error = true)
-        update { if (ready) it.copy(phase = "aguardando", note = "Toque/acione o assistente nos óculos para falar") else it.copy(phase = "inativo", note = "Aguardando conexão com os óculos") }
+        if (!ready && busy) endRound("Mất kết nối; lượt bị ngắt", sendExit = false, error = true)
+        update { if (ready) it.copy(phase = "đang chờ", note = "Chạm/gọi trợ lý trên kính để nói") else it.copy(phase = "inativo", note = "Đang chờ kết nối với kính") }
     }
 
     companion object {

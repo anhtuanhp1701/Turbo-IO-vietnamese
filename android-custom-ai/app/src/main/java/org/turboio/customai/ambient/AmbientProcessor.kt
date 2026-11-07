@@ -124,15 +124,15 @@ class AmbientProcessor(
             val chunk = store.nextPending() ?: return Outcome.Done(done)
             val dir = store.segmentDir(chunk.segmentId)
             if (dir == null || !File(dir, "segment.json").exists()) {
-                store.markAttempt(chunk.id, "áudio do segmento não encontrado", failed = true, now()); continue
+                store.markAttempt(chunk.id, "không tìm thấy âm thanh của đoạn ghi", failed = true, now()); continue
             }
             try {
                 processChunk(chunk, dir)
                 done++
             } catch (e: TranscriptionException) {
-                store.markAttempt(chunk.id, e.message ?: "erro", failed = e.permanent || chunk.attempts >= 8, now())
+                store.markAttempt(chunk.id, e.message ?: "lỗi", failed = e.permanent || chunk.attempts >= 8, now())
                 DiagnosticLog.w("AMBIENTE", "transcrição falhou: ${e.message}")
-                return if (e.permanent) Outcome.Stopped(e.message ?: "erro") else Outcome.Retry(e.message ?: "erro")
+                return if (e.permanent) Outcome.Stopped(e.message ?: "lỗi") else Outcome.Retry(e.message ?: "lỗi")
             }
             if (store.segmentFinished(chunk.segmentId)) {
                 store.setSegmentState(chunk.segmentId, "done")

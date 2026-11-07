@@ -198,7 +198,7 @@ class AmbientPipelineTest {
         assertEquals(listOf(0, 0, 0, 0, 1, 1), t.words.map { it.speaker })
         assertEquals(1840L, t.words[4].startMs)
         val auth = runCatching { DeepgramTranscriber("x", http = { _, _, _, _ -> 401 to """{"err_code":"INVALID_AUTH","err_msg":"Invalid credentials."}""" }).transcribe(ByteArray(1), 1) }.exceptionOrNull()
-        assertTrue(auth is TranscriptionException && auth.permanent && auth.message!!.contains("chave inválida"))
+        assertTrue(auth is TranscriptionException && auth.permanent && auth.message!!.contains("khóa không hợp lệ"))
         val busy = runCatching { DeepgramTranscriber("x", http = { _, _, _, _ -> 429 to "{}" }).transcribe(ByteArray(1), 1) }.exceptionOrNull()
         assertTrue(busy is TranscriptionException && !busy.permanent)
     }

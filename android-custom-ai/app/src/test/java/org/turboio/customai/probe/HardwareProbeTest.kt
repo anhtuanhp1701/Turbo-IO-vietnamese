@@ -164,7 +164,7 @@ class HardwareProbeTest {
         advanceTimeBy(11_000); runCurrent()
         assertFalse(probe.busy); assertTrue(flag.value)
         assertEquals("probe-test-lifelog-off", probe.state.value.savedAt)
-        assertTrue(probe.state.value.verdict.contains("sem confirmação"))
+        assertTrue(probe.state.value.verdict.contains("không có xác nhận"))
         assertEquals(2, probe.state.value.runs)
     }
 
@@ -175,7 +175,7 @@ class HardwareProbeTest {
         assertEquals(listOf("15/20"), port.trace())                       // only the guide flag: the user starts it
         assertEquals("life_log_guide", cmd(0).getString("cmd")); assertTrue(flag.value)
         advanceTimeBy(10_000); runCurrent()
-        assertEquals("aguardando os óculos", probe.state.value.phase)
+        assertEquals("đang chờ kính", probe.state.value.phase)
         // The glasses ask the phone for the LifeLog settings → the app switches LifeLog on itself.
         port.glasses(15, 21, """{"cmd":"life_log_guide_launch","payload":{"value":0,"mode":0,"data":""}}"""); runCurrent()
         assertEquals("life_log_switch", cmd(1).getString("cmd")); assertEquals(1, cmd(1).getJSONObject("payload").getInt("value"))
@@ -200,16 +200,16 @@ class HardwareProbeTest {
         val probe = HardwareProbe(port, this, MemoryFlag(), fixedRandom, sink, clock = { testScheduler.currentTime })
         probe.startLifeLog(10, realtimePage = true, countFromAudio = true); runCurrent()
         advanceTimeBy(20_000); runCurrent()
-        assertEquals("aguardando o áudio dos óculos", probe.state.value.phase)
+        assertEquals("đang chờ âm thanh từ kính", probe.state.value.phase)
         port.glasses(13, 161); runCurrent()                                   // A1 after 20 s
         advanceTimeBy(9_000); runCurrent()
         assertEquals("capturando", probe.state.value.phase)                    // 10 s counted from the audio, not the switch
         advanceTimeBy(13_000); runCurrent()
-        assertEquals("tempo do teste concluído", sink.analysis!!.report.getString("reason"))
+        assertEquals("hết thời gian thử", sink.analysis!!.report.getString("reason"))
         port.sent.clear()
         probe.startLifeLog(10, countFromAudio = true); runCurrent()
         advanceTimeBy(52_000); runCurrent()
-        assertTrue(sink.analysis!!.report.getString("reason").contains("não iniciaram"))
+        assertTrue(sink.analysis!!.report.getString("reason").contains("không bắt đầu"))
     }
 
     @Test fun observationRecordsEverythingSendsNothingAndDropsAncsText() = runTest {
@@ -233,7 +233,7 @@ class HardwareProbeTest {
         advanceTimeBy(6000); runCurrent()
         assertEquals(listOf("15/20", "13/166", "15/20", "15/20"), port.trace())
         advanceTimeBy(11_000); runCurrent()
-        assertEquals("nenhum", sink.analysis!!.report.getString("trigger"))
+        assertEquals("không có", sink.analysis!!.report.getString("trigger"))
         assertFalse(sink.analysis!!.report.getBoolean("appSwitchedOn"))
     }
 

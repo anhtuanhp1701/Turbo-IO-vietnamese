@@ -52,5 +52,5 @@ interface GlassesPort {
     fun addRawListener(listener: (business: Int, payload: ByteArray) -> Unit) {}
     /** One file-transfer message (business 18, not an envelope); only while a teleprompter session holds the lease. */
     /** One file-transfer message on [business] (17 or 18); see GlassesSession.sendFile. */
-    fun sendFile(payload: ByteArray, business: Int = org.turboio.customai.protocol.Business.FILE, done: (String?) -> Unit) { done("Transferência de arquivo indisponível") }
+    fun sendFile(payload: ByteArray, business: Int = org.turboio.customai.protocol.Business.FILE, done: (String?) -> Unit) { done("Không thể truyền tệp") }
 }

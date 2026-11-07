@@ -33,9 +33,9 @@ object SettingsWire {
     /** The official setter clamps the angle to 0–90. */
     val WAKE_DEGREE_RANGE = 0..90
     /** crown_switch of wakeup_config: the official "wake on crown rotation" page offers off, marble (3) and poke (2). */
-    val CROWN_WAKE = linkedMapOf(0 to "desligado", 3 to "modo marble", 2 to "modo poke")
+    val CROWN_WAKE = linkedMapOf(0 to "đã tắt", 3 to "chế độ marble", 2 to "chế độ poke")
     /** Rotation direction of the crown (payload.value of crown_config): standard 0, natural 1. */
-    val CROWN_DIRECTIONS = linkedMapOf(0 to "padrão", 1 to "natural")
+    val CROWN_DIRECTIONS = linkedMapOf(0 to "mặc định", 1 to "natural")
 
     /** Head gestures on/off keeping the mode read from the glasses (value + mode, empty data). */
     fun head(enabled: Boolean, mode: Int) = "{\"cmd\":\"head_gestures\",\"payload\":{\"value\":${if (enabled) 1 else 0},\"mode\":$mode,\"data\":\"\"}}"
@@ -58,8 +58,8 @@ object SettingsWire {
      * Crown actions of the official app's common screen (CrownDoubleTapAction / CrownLongPressAction). Double-tap
      * LifeLog (6) exists in the enum but is not confirmed for the iO, so it is not offered (a value read is kept).
      */
-    val CROWN_ACTIONS = linkedMapOf(0 to "Perguntar à IA", 1 to "Painel", 2 to "Foco", 3 to "Gravador", 4 to "Legendas", 5 to "Teleprompter",
-        8 to "To-do", 9 to "Dicas ao vivo", 7 to "Nenhuma")
+    val CROWN_ACTIONS = linkedMapOf(0 to "Hỏi AI", 1 to "Bảng điều khiển", 2 to "Tập trung", 3 to "Máy ghi âm", 4 to "Phụ đề", 5 to "Máy nhắc chữ",
+        8 to "To-do", 9 to "Gợi ý trực tiếp", 7 to "Không có")
     val LONG_PRESS_ACTIONS = CROWN_ACTIONS
 }
 
@@ -126,7 +126,7 @@ private val DETAIL_KEYS = listOf("displayConfig", "crownConfig", "headGestures",
 /** Where the first values read from the glasses are kept (for "restore"). */
 interface OriginalSettings { fun load(): GlassesConfig?; fun save(c: GlassesConfig) }
 
-data class SettingsState(val config: GlassesConfig = GlassesConfig(), val original: GlassesConfig? = null, val note: String = "Toque em “Ler ajustes dos óculos”", val busy: Boolean = false,
+data class SettingsState(val config: GlassesConfig = GlassesConfig(), val original: GlassesConfig? = null, val note: String = "Bấm “Đọc cài đặt kính”", val busy: Boolean = false,
                          /** Raw setting groups as read (no serial numbers), for diagnosis. */
                          val details: String = "")
 
@@ -162,13 +162,13 @@ class GlassesSettings(
     fun read(done: (String?) -> Unit = {}) = scope.launch { done(readNow()) }
 
     private suspend fun readNow(): String? {
-        if (!port.isReady) return "Conecte os óculos".also { note(it) }
-        note("Lendo ajustes…", busy = true)
+        if (!port.isReady) return "Hãy kết nối kính".also { note(it) }
+        note("Đang đọc cài đặt…", busy = true)
         val waiter = CompletableDeferred<JSONObject>().also { settingsReply = it }
-        port.sendEnvelope(Business.LAUNCHER, 4, SettingsWire.READ)?.let { settingsReply = null; return "Falha ao enviar: $it".also { m -> note(m) } }
+        port.sendEnvelope(Business.LAUNCHER, 4, SettingsWire.READ)?.let { settingsReply = null; return "Gửi thất bại: $it".also { m -> note(m) } }
         val reply = withTimeoutOrNull(6000) { waiter.await() }
         settingsReply = null
-        if (reply == null) return "Os óculos não responderam (6 s)".also { note(it) }
+        if (reply == null) return "Kính không phản hồi (6 giây)".also { note(it) }
         val config = GlassesConfig.parse(reply, clock())
         if (config.hasDisplay) learned.add(config.height?.takeIf { it in SettingsWire.HEIGHT_RANGE }, config.distance?.takeIf { it in SettingsWire.DISTANCE_RANGE })
         var original = _state.value.original
@@ -185,7 +185,7 @@ class GlassesSettings(
         DiagnosticLog.i("AJUSTES", "chaves dos ajustes: ${config.keys.take(300)}")
         DiagnosticLog.i("AJUSTES", "valores: $details")
         if (config.identity.isNotEmpty()) DiagnosticLog.i("AJUSTES", "identificação: ${config.identity}")
-        note(if (config.hasDisplay || config.hasCrown) "Ajustes lidos" else "Os óculos não informaram altura/distância nem o duplo toque")
+        note(if (config.hasDisplay || config.hasCrown) "Đã đọc cài đặt" else "Kính không cho biết độ cao/khoảng cách hay chạm hai lần")
         return null
     }
 
@@ -208,10 +208,10 @@ class GlassesSettings(
             learned.add(height, distance)
             return@launch done(null)
         }
-        var msg = "Os óculos não aplicaram esse valor (relido: altura ${after.height ?: "?"}, distância ${after.distance ?: "?"})"
+        var msg = "Kính không áp dụng giá trị này (đọc lại: độ cao ${after.height ?: "?"}, khoảng cách ${after.distance ?: "?"})"
         if (after.hasDisplay && (after.height != prev.height || after.distance != prev.distance)) {
             val back = write("display_config") { c -> if (c.hasDisplay) SettingsWire.display(prev.height!!, prev.distance!!) else null }
-            msg += if (back == null) "; valores anteriores restaurados" else "; não foi possível restaurar: $back"
+            msg += if (back == null) "; đã khôi phục giá trị trước đó" else "; không khôi phục được: $back"
         }
         note(msg); done(msg)
     }
@@ -227,9 +227,9 @@ class GlassesSettings(
         scope.launch { done(writeCrown(double, longPress, direction)) }
 
     private suspend fun writeCrown(double: Int?, longPress: Int?, direction: Int? = null): String? {
-        if (double != null && double !in SettingsWire.CROWN_ACTIONS) return "Ação inválida"
-        if (longPress != null && longPress !in SettingsWire.LONG_PRESS_ACTIONS) return "Ação inválida"
-        if (direction != null && direction !in SettingsWire.CROWN_DIRECTIONS) return "Sentido inválido"
+        if (double != null && double !in SettingsWire.CROWN_ACTIONS) return "Thao tác không hợp lệ"
+        if (longPress != null && longPress !in SettingsWire.LONG_PRESS_ACTIONS) return "Thao tác không hợp lệ"
+        if (direction != null && direction !in SettingsWire.CROWN_DIRECTIONS) return "Hướng không hợp lệ"
         val error = write("crown_config") { c ->
             if (!c.hasCrown) return@write null
             SettingsWire.crown(double ?: c.crownDouble!!, longPress ?: c.crownLongPress!!, direction ?: c.crownDirection)
@@ -238,7 +238,7 @@ class GlassesSettings(
         val c = _state.value.config
         val ok = (double == null || c.crownDouble == double) && (longPress == null || c.crownLongPress == longPress) &&
             (direction == null || c.crownDirection == direction)
-        return if (ok) null else "Os óculos não aplicaram (relido: duplo toque ${c.crownDouble ?: "?"}, segurar ${c.crownLongPress ?: "?"})".also { note(it) }
+        return if (ok) null else "Kính không áp dụng (đọc lại: chạm hai lần ${c.crownDouble ?: "?"}, giữ ${c.crownLongPress ?: "?"})".also { note(it) }
     }
 
     /**
@@ -257,7 +257,7 @@ class GlassesSettings(
         val c = _state.value.config
         val ok = (headup == null || c.wakeHeadup == (if (headup) 1 else 0)) && (degree == null || c.wakeDegree == degree) &&
             (crown == null || c.wakeCrown == crown)
-        done(if (ok) null else "Os óculos não aplicaram (relido: olhar para cima ${c.wakeHeadup ?: "?"}, ângulo ${c.wakeDegree ?: "?"}°, botão ${c.wakeCrown ?: "?"})".also { note(it) })
+        done(if (ok) null else "Kính không áp dụng (đọc lại: ngẩng đầu ${c.wakeHeadup ?: "?"}, góc ${c.wakeDegree ?: "?"}°, nút ${c.wakeCrown ?: "?"})".also { note(it) })
     }
 
     /** Head gestures (headGestures group; NOT the look-up screen wake). The mode is sent back exactly as read; the result is read back. */
@@ -268,16 +268,16 @@ class GlassesSettings(
         }
         if (error != null) return@launch done(error)
         val after = _state.value.config.headEnabled
-        done(if (after == enabled) null else "Os óculos não aplicaram (relido: ${when (after) { true -> "ligado"; false -> "desligado"; null -> "não informado" }})".also { note(it) })
+        done(if (after == enabled) null else "Kính không áp dụng (đọc lại: ${when (after) { true -> "đang bật"; false -> "đã tắt"; null -> "não informado" }})".also { note(it) })
     }
 
     /** “Hey RayNeo” on/off: 15/16 set_ai_voice_wakeup with mode 1 (on) or 0 (off), the official app's command; read back afterwards. */
     fun setWakeWord(on: Boolean, done: (String?) -> Unit = {}) = scope.launch {
-        if (!port.isReady) return@launch done("Conecte os óculos")
-        note(if (on) "Ativando a palavra de ativação…" else "Desligando a palavra de ativação…", busy = true)
+        if (!port.isReady) return@launch done("Hãy kết nối kính")
+        note(if (on) "Đang bật từ đánh thức…" else "Đang tắt từ đánh thức…", busy = true)
         pendingCmd = "set_ai_voice_wakeup"
         val waiter = CompletableDeferred<Pair<Int, JSONObject>>().also { commandReply = it }
-        port.sendEnvelope(Business.LAUNCHER, 16, if (on) Business.WAKEUP_ON else Business.WAKEUP_OFF)?.let { pendingCmd = ""; return@launch done("Falha ao enviar: $it".also { m -> note(m) }) }
+        port.sendEnvelope(Business.LAUNCHER, 16, if (on) Business.WAKEUP_ON else Business.WAKEUP_OFF)?.let { pendingCmd = ""; return@launch done("Gửi thất bại: $it".also { m -> note(m) }) }
         val reply = withTimeoutOrNull(6000) { waiter.await() }
         pendingCmd = ""; commandReply = null
         DiagnosticLog.i("AJUSTES", "palavra de ativação ${if (on) "ligar" else "desligar"}: resposta ${reply?.let { "${it.first} ${it.second.toString().take(160)}" } ?: "nenhuma"}")
@@ -285,10 +285,10 @@ class GlassesSettings(
         val now = _state.value.config.wakeup
         val msg = when {
             now == on -> null
-            reply == null -> if (on) "Enviado; os óculos não responderam. Diga “Hey RayNeo” para testar" else "Enviado; os óculos não responderam"
+            reply == null -> if (on) "Đã gửi; kính không phản hồi. Hãy nói “Hey RayNeo” để thử" else "Đã gửi; kính không phản hồi"
             else -> null
         }
-        note(if (on) "Palavra de ativação: ${if (now == true) "ligada" else "pedido enviado"}" else "Palavra de ativação: ${if (now == false) "desligada" else "pedido enviado"}")
+        note(if (on) "Từ đánh thức: ${if (now == true) "ligada" else "pedido enviado"}" else "Từ đánh thức: ${if (now == false) "desligada" else "pedido enviado"}")
         done(msg)
     }
 
@@ -296,14 +296,14 @@ class GlassesSettings(
 
     /** Glasses clock from the phone (sent after each connection, like the official app on time changes). */
     fun syncTime(done: (String?) -> Unit = {}) = scope.launch {
-        if (!port.isReady) return@launch done("Conecte os óculos")
+        if (!port.isReady) return@launch done("Hãy kết nối kính")
         val error = port.sendEnvelope(Business.LAUNCHER, 5, SettingsWire.syncTime(clock(), java.time.ZoneId.systemDefault()))
         DiagnosticLog.i("AJUSTES", if (error == null) "hora enviada aos óculos" else "hora não enviada: $error")
         done(error)
     }
 
     fun restore(done: (String?) -> Unit = {}) = scope.launch {
-        val o = _state.value.original ?: return@launch done("Nada a restaurar: os ajustes originais ainda não foram lidos")
+        val o = _state.value.original ?: return@launch done("Chưa có gì để khôi phục: chưa đọc cài đặt gốc")
         var error: String? = null
         if (o.hasDisplay && o.height in SettingsWire.HEIGHT_RANGE && o.distance in SettingsWire.DISTANCE_RANGE)
             error = write("display_config") { c -> if (c.hasDisplay) SettingsWire.display(o.height!!, o.distance!!) else null }
@@ -317,15 +317,15 @@ class GlassesSettings(
     /** Fresh read → build from current values → send → wait for the glasses' reply → read back. */
     private suspend fun write(cmd: String, build: (GlassesConfig) -> String?): String? {
         readNow()?.let { return it }
-        val json = build(_state.value.config) ?: return "Os óculos não informaram esse ajuste; nada foi alterado".also { note(it) }
-        note("Enviando $cmd…", busy = true)
+        val json = build(_state.value.config) ?: return "Kính không cho biết cài đặt này; không thay đổi gì".also { note(it) }
+        note("Đang gửi $cmd…", busy = true)
         pendingCmd = cmd
         val waiter = CompletableDeferred<Pair<Int, JSONObject>>().also { commandReply = it }
-        port.sendEnvelope(Business.LAUNCHER, 5, json)?.let { pendingCmd = ""; return "Falha ao enviar: $it".also { m -> note(m) } }
+        port.sendEnvelope(Business.LAUNCHER, 5, json)?.let { pendingCmd = ""; return "Gửi thất bại: $it".also { m -> note(m) } }
         val reply = withTimeoutOrNull(6000) { waiter.await() }
         pendingCmd = ""; commandReply = null
         readNow()
-        return if (reply == null) "Os óculos não confirmaram (6 s); valores relidos acima".also { note(it) }
-        else null.also { note("Óculos confirmaram $cmd; confira o efeito nas lentes") }
+        return if (reply == null) "Kính không xác nhận (6 giây); giá trị đọc lại ở trên".also { note(it) }
+        else null.also { note("Kính đã xác nhận $cmd; hãy xem kết quả trên kính") }
     }
 }

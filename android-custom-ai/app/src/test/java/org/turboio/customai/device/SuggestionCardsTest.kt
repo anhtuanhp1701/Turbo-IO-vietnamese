@@ -19,11 +19,11 @@ class SuggestionCardsTest {
         val notifier = NativeNotifier(port, this, fixedRandom, ZoneId.of("UTC"))
         val cards = SuggestionCards(port, fixedRandom)
         notifier.suggestionListener = cards::onAnswer
-        val first = async { cards.ask("Anotar pendência?", "Ligar para a Marina · 17/10 15:00", "Memória") }
+        val first = async { cards.ask("Ghi lại việc này?", "Ligar para a Marina · 17/10 15:00", "Bộ nhớ") }
         runCurrent()
         val add = JSONObject(port.sent[0].second.jsonText())
         assertEquals("21/33", port.trace()[0]); assertEquals(1, add.getInt("type")); assertEquals(2, add.getInt("suggestType"))
-        assertEquals("Memória", add.getString("source"))
+        assertEquals("Bộ nhớ", add.getString("source"))
         val uid = add.getString("suggestUID")
         port.glasses(21, 34, """{"suggestUID":"other-card-123","suggestType":2,"cmd":1}"""); runCurrent()   // not ours
         port.glasses(21, 34, """{"suggestUID":"$uid","suggestType":2,"cmd":1}"""); runCurrent()

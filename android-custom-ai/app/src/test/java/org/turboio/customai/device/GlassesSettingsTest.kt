@@ -54,7 +54,7 @@ class GlassesSettingsTest {
         glassesAnswer(3, 1, 0, 7)
         assertEquals(8, data(1).getInt("double")); assertEquals(7, data(1).getInt("longPress"))
         advanceTimeBy(7000); runCurrent(); glassesAnswer(3, 1, 8, 7)
-        assertEquals("Os óculos não confirmaram (6 s); valores relidos acima", result)
+        assertEquals("Kính không xác nhận (6 giây); giá trị đọc lại ở trên", result)
         // Off restores the action read originally (here 4 = live captions), not "ask the AI" (0).
         val port2 = FakePort()
         val other = GlassesSettings(port2, this, MemoryOriginals(GlassesConfig(3, 1, 4, 7, 1)))
@@ -64,14 +64,14 @@ class GlassesSettingsTest {
         // Unknown actions are refused before anything is sent.
         val port3 = FakePort()
         GlassesSettings(port3, this, MemoryOriginals()).setCrown(double = 11) { result = it }; runCurrent()
-        assertEquals("Ação inválida", result); assertTrue(port3.sent.isEmpty())
+        assertEquals("Thao tác không hợp lệ", result); assertTrue(port3.sent.isEmpty())
     }
 
     @Test fun noReplyNoWriteAndContentGateRejectsOtherValues() = runTest {
         val s = GlassesSettings(port, this, MemoryOriginals())
         var result: String? = null
         s.setDisplay(height = 1) { result = it }; runCurrent(); advanceTimeBy(7000); runCurrent()
-        assertEquals("Os óculos não responderam (6 s)", result); assertEquals(listOf("15/4"), port.trace())
+        assertEquals("Kính không phản hồi (6 giây)", result); assertEquals(listOf("15/4"), port.trace())
         // Official setter ranges: height 1–6, distance 1–3.
         assertTrue(Business.contentAllowed(15, 5, SettingsWire.display(5, 1)))
         assertTrue(Business.contentAllowed(15, 5, SettingsWire.display(6, 3)))
@@ -113,7 +113,7 @@ class GlassesSettingsTest {
         assertEquals(1, data(port.sent.lastIndex).getInt("distance"))
         port.glasses(15, 6, """{"cmd":"display_config","payload":{"value":0}}"""); runCurrent()
         glassesAnswer(3, 1, 0, 5)
-        assertTrue(result!!, result!!.startsWith("Os óculos não aplicaram") && result!!.contains("restaurados"))
+        assertTrue(result!!, result!!.startsWith("Kính không áp dụng") && result!!.contains("khôi phục"))
         assertEquals(listOf(1, 2, 3, 4, 5, 6), s.heights()); assertEquals(listOf(1, 2, 3), s.distances())
     }
 
@@ -171,7 +171,7 @@ class GlassesSettingsTest {
         runCurrent(); port.glasses(15, 4, strix(1, 35)); runCurrent()
         port.glasses(15, 6, """{"cmd":"wakeup_config","payload":{"value":0}}"""); runCurrent()
         port.glasses(15, 4, strix(1, 35)); runCurrent()
-        assertTrue(result!!, result!!.startsWith("Os óculos não aplicaram"))
+        assertTrue(result!!, result!!.startsWith("Kính không áp dụng"))
         // Crown: the direction read from the glasses goes back in payload.value; data holds only the actions.
         s.setCrown(longPress = 5) { result = it }
         runCurrent(); port.glasses(15, 4, strix(1, 35)); runCurrent()

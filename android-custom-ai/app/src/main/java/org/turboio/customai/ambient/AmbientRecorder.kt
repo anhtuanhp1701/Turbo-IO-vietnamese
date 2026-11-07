@@ -43,7 +43,7 @@ class PhoneMicSource : AudioSource {
         val min = AudioRecord.getMinBufferSize(16000, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
         val record = AudioRecord(MediaRecorder.AudioSource.VOICE_RECOGNITION, 16000, AudioFormat.CHANNEL_IN_MONO,
             AudioFormat.ENCODING_PCM_16BIT, maxOf(min, 16000))
-        if (record.state != AudioRecord.STATE_INITIALIZED) { record.release(); throw IllegalStateException("Microfone indisponível") }
+        if (record.state != AudioRecord.STATE_INITIALIZED) { record.release(); throw IllegalStateException("Micro không khả dụng") }
         running = true
         thread = Thread({
             val encoder = OpusEncoder(16000, 1, OpusApplication.OPUS_APPLICATION_VOIP).apply { setBitrate(24000) }
@@ -76,7 +76,7 @@ data class AmbientStatus(
     val capturedMs: Long = 0,
     val segments: Int = 0,
     val counts: AmbientStore.Counts = AmbientStore.Counts(0, 0, 0, 0, 0),
-    val note: String = "Gravação ambiente desligada",
+    val note: String = "Đã tắt ghi âm môi trường",
     val error: String = "",
 )
 
@@ -108,25 +108,25 @@ class AmbientRecorder(private val app: TurboApp) {
     }
 
     fun startPhoneMic(): String? {
-        if (ContextCompat.checkSelfPermission(app, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) return "Permita o uso do microfone"
-        return begin(PhoneMicSource(), "Gravando pelo microfone do telefone")
+        if (ContextCompat.checkSelfPermission(app, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) return "Hãy cho phép dùng micro"
+        return begin(PhoneMicSource(), "Đang ghi bằng micro điện thoại")
     }
 
     /** Glasses microphones via LifeLog; [fromGlasses] = the user started it on the glasses menu (A1 already received). */
     fun startGlasses(fromGlasses: Boolean = false): String? {
-        if (!app.session.isReady) return "Conecte os óculos primeiro"
-        if (app.probe.busy) return "Há um teste de hardware em andamento"
+        if (!app.session.isReady) return "Hãy kết nối kính trước"
+        if (app.probe.busy) return "Đang chạy bài kiểm tra phần cứng"
         val src = LifeLogSource(app.session, app.scope, org.turboio.customai.probe.PrefsPendingFlag(app), app.random,
             realtime = true, startedOnGlasses = fromGlasses, keepGuide = { app.settings.ambientSettings().glassesMenu },
             onEnded = { reason -> stop(reason) })
         lifeLog = src
-        return begin(src, if (fromGlasses) "Gravando pelos óculos (ligado no menu dos óculos)" else "Gravando pelos microfones dos óculos")
+        return begin(src, if (fromGlasses) "Đang ghi bằng kính (bật từ menu của kính)" else "Đang ghi bằng micro của kính")
     }
 
     private fun begin(src: AudioSource, note: String): String? {
-        if (_status.value.recording) return "Já está gravando"
-        if (!app.settings.ambientSettings().consent) return "Aceite o aviso de consentimento primeiro"
-        if (storageBytes() > 1_500L * 1024 * 1024) return "Mais de 1,5 GB de áudio aguardando transcrição; transcreva antes de gravar mais"
+        if (_status.value.recording) return "Đang ghi rồi"
+        if (!app.settings.ambientSettings().consent) return "Hãy đồng ý thông báo về quyền riêng tư trước"
+        if (storageBytes() > 1_500L * 1024 * 1024) return "Hơn 1,5 GB âm thanh đang chờ chép lời; hãy chép lời trước khi ghi thêm"
         ConnectionService.start(app)   // foreground service keeps capture alive with the screen off
         val sink = threadedSink()
         ingest = AmbientIngest(root, src, { dir, m -> segments++; processor.onSealed(dir, m); enqueue(app); refresh() })
@@ -136,7 +136,7 @@ class AmbientRecorder(private val app: TurboApp) {
             _status.value = _status.value.copy(recording = true, source = src.id, startedAt = System.currentTimeMillis(), note = note, error = "")
             DiagnosticLog.i("AMBIENTE", "gravação ambiente iniciada (${src.id})")
             null
-        } catch (e: Exception) { source = null; ingest = null; e.message ?: "Falha ao iniciar a gravação" }
+        } catch (e: Exception) { source = null; ingest = null; e.message ?: "Không bắt đầu ghi âm được" }
     }
 
     /** True while the glasses LifeLog is in use by the ambient recorder (hardware probes must wait). */
@@ -164,14 +164,14 @@ class AmbientRecorder(private val app: TurboApp) {
         }
     }
 
-    fun connectionLost() { if (source is LifeLogSource) stop("conexão com os óculos perdida") }
+    fun connectionLost() { if (source is LifeLogSource) stop("mất kết nối với kính") }
 
-    fun stop(reason: String = "parada pelo usuário") {
+    fun stop(reason: String = "người dùng dừng") {
         val src = source ?: return
         source = null
         src.stop()
         handler.post { ingest?.seal("stop"); ingest = null; refresh() }
-        _status.value = _status.value.copy(recording = false, note = "Gravação parada ($reason); transcrição em fila")
+        _status.value = _status.value.copy(recording = false, note = "Đã dừng ghi ($reason); đang chờ chép lời")
         DiagnosticLog.i("AMBIENTE", "gravação ambiente parada: $reason")
         if (!app.settings.keepConnected || !app.session.isReady) ConnectionService.stop(app)
     }

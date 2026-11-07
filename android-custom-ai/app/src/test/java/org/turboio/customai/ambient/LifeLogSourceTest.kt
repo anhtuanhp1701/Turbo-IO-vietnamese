@@ -79,7 +79,7 @@ class LifeLogSourceTest {
         assertEquals(listOf("13/162", "13/168"), port.trace())                // no switch: the glasses already started
         realtime(lifeLogFrames(5)) { true }
         port.glasses(15, 21, """{"cmd":"life_log_switch","payload":{"value":0,"mode":0,"data":""}}"""); runCurrent()
-        assertEquals("LifeLog desligado nos óculos", endedWith)
+        assertEquals("LifeLog đã tắt trên kính", endedWith)
         assertFalse(src.running); assertFalse(flag.value)
         assertEquals(5, sink.batches.single().frames.size)
         assertEquals(listOf("13/166", "15/20"), port.trace().drop(2))          // guide flag kept on

@@ -95,9 +95,9 @@ class AiFragment : Fragment() {
         g3.switch("Bật trợ lý giọng nói (khi gọi trên kính)", voice.enabled) { settings.setVoiceEnabled(it) }
         g3.switch("Tiếp tục hội thoại sau câu trả lời (kính nghe tiếp)", voice.followUp) { settings.setVoiceFollowUp(it) }
         g3.switch("Bỏ dấu khi hiển thị (chỉ dùng nếu chữ bị ô vuông)", voice.stripAccents) { settings.setStripAccents(it) }
-        val formats = listOf("legacy" to "Formato antigo, repetido (padrão)", "official" to "Formato do app oficial", "bilingual" to "Oficial com linha de tradução",
-            "caption" to "Legenda do app oficial 1.0.7 (título)", "classic" to "Legenda do app oficial 1.0.7 (clássica)",
-            "session_classic" to "Sessão de legendas oficial (clássica)", "session_title" to "Sessão de legendas oficial (título)")
+        val formats = listOf("legacy" to "Định dạng cũ, gửi lặp lại", "official" to "Định dạng của app chính thức", "bilingual" to "Chính thức, có dòng bản dịch",
+            "caption" to "Phụ đề app chính thức 1.0.7 (tiêu đề)", "classic" to "Phụ đề app chính thức 1.0.7 (cổ điển)",
+            "session_classic" to "Phiên phụ đề chính thức (cổ điển)", "session_title" to "Phiên phụ đề chính thức (tiêu đề)")
         g3.text("Định dạng chữ trên kính", size = 13f)
         g3.spinner(formats, formats.indexOfFirst { it.first == settings.displaySettings().textFormat }.coerceAtLeast(0), { it.second }) { settings.setTextFormat(it.first) }
         g3.text("Chữ trên kính (thử nghiệm; nếu kính từ chối sẽ về mặc định)", size = 13f)

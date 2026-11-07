@@ -39,28 +39,28 @@ data class SuiteState(
 class TestSuite(private val probe: HardwareProbe, private val store: SuiteStore, private val clock: () -> Long = System::currentTimeMillis) {
     companion object {
         val STEPS = listOf(
-            SuiteStep("G1-G3", "LifeLog 40 s com roteiro",
-                "Tenha outra pessoa por perto (ou um vídeo com voz). O roteiro começa quando o áudio dos óculos chegar.",
-                listOf(0 to "VOCÊ fala: conte devagar de 1 a 10", 10 to "SILÊNCIO total", 20 to "OUTRA PESSOA fala (você calado)",
-                    30 to "VOCÊ e a outra pessoa alternam frases")) { it.startLifeLog(40, realtimePage = true, countFromAudio = true) },
-            SuiteStep("G7", "Ligar o LifeLog pelos óculos",
-                "Toque em Iniciar e, em até 90 s, ligue o LifeLog pelo menu dos óculos. Anote o que aparecer nas lentes.",
-                listOf(0 to "Ligou! Fale algumas frases")) { it.startLifeLogFromGlasses(90, 30) },
-            SuiteStep("G8", "Apps nativos dos óculos (só observação)",
-                "Toque em Iniciar e, nos óculos, abra um de cada vez, por uns 30 s cada: Legendas (Subtitle), Assistente de conversa, " +
-                    "Teleprompter e Gravador. Em cada um, fale algumas frases. O app só registra o que os óculos enviam; nada é alterado.",
-                listOf(0 to "Abra Legendas e fale", 35 to "Agora o Assistente de conversa", 70 to "Agora o Teleprompter",
-                    105 to "Agora o Gravador: grave uns segundos", 140 to "Feche os apps")) { it.startObserve(170) },
-            SuiteStep("G14", "Gravador nativo (canal 14)",
-                "Toque em Iniciar e, em até 60 s, abra o app Gravador dos óculos (não o LifeLog) e grave uns 20 s; depois pare pelos óculos.",
-                listOf(0 to "Gravando: fale e pare pelos óculos")) { it.startRecording14(120) },
-            SuiteStep("G4", "LifeLog 5 min em tempo real",
-                "Óculos no rosto o tempo todo. Converse normalmente, com pausas. Pode deixar o telefone de lado.",
-                listOf(0 to "Converse normalmente, óculos no rosto")) { it.startLifeLog(300, realtimePage = true, countFromAudio = true) },
-            SuiteStep("G5", "Desligamento após fechar o app à força",
-                "Toque em Iniciar. Quando aparecer “áudio: 10 s”, feche o app à força (Configurações → Apps → Turbo IO → Forçar parada). " +
-                    "Reabra o app e conecte os óculos: o app deve desligar o LifeLog sozinho e concluir esta etapa.",
-                listOf(0 to "Aguarde…", 10 to "AGORA: force a parada do app e reabra")) { it.startLifeLog(600, realtimePage = true) },
+            SuiteStep("G1-G3", "LifeLog 40 giây theo kịch bản",
+                "Hãy có người khác ở gần (hoặc một video có tiếng nói). Kịch bản bắt đầu khi âm thanh từ kính tới.",
+                listOf(0 to "BẠN nói: đếm chậm từ 1 đến 10", 10 to "IM LẶNG hoàn toàn", 20 to "NGƯỜI KHÁC nói (bạn im lặng)",
+                    30 to "BẠN và người kia nói xen kẽ")) { it.startLifeLog(40, realtimePage = true, countFromAudio = true) },
+            SuiteStep("G7", "Bật LifeLog từ kính",
+                "Bấm Bắt đầu và trong 90 giây, bật LifeLog từ menu của kính. Ghi lại những gì hiện trên kính.",
+                listOf(0 to "Đã bật! Hãy nói vài câu")) { it.startLifeLogFromGlasses(90, 30) },
+            SuiteStep("G8", "Các app gốc của kính (chỉ quan sát)",
+                "Bấm Bắt đầu rồi trên kính lần lượt mở từng app, mỗi app khoảng 30 giây: Phụ đề (Subtitle), Trợ lý hội thoại, " +
+                    "Máy nhắc chữ và Máy ghi âm. Trong mỗi app, nói vài câu. App chỉ ghi lại những gì kính gửi; không thay đổi gì.",
+                listOf(0 to "Mở Phụ đề và nói", 35 to "Giờ đến Trợ lý hội thoại", 70 to "Giờ đến Máy nhắc chữ",
+                    105 to "Giờ đến Máy ghi âm: ghi vài giây", 140 to "Đóng các app")) { it.startObserve(170) },
+            SuiteStep("G14", "Máy ghi âm gốc (kênh 14)",
+                "Bấm Bắt đầu và trong 60 giây, mở app Máy ghi âm của kính (không phải LifeLog) và ghi khoảng 20 giây; rồi dừng trên kính.",
+                listOf(0 to "Đang ghi: hãy nói rồi dừng trên kính")) { it.startRecording14(120) },
+            SuiteStep("G4", "LifeLog 5 phút thời gian thực",
+                "Luôn đeo kính trên mặt. Trò chuyện bình thường, có ngắt nghỉ. Có thể để điện thoại sang một bên.",
+                listOf(0 to "Trò chuyện bình thường, đeo kính trên mặt")) { it.startLifeLog(300, realtimePage = true, countFromAudio = true) },
+            SuiteStep("G5", "Tắt sau khi buộc đóng app",
+                "Bấm Bắt đầu. Khi thấy “âm thanh: 10 s”, hãy buộc đóng app (Cài đặt → Ứng dụng → Turbo IO → Buộc dừng). " +
+                    "Mở lại app và kết nối kính: app phải tự tắt LifeLog và hoàn tất bước này.",
+                listOf(0 to "Vui lòng chờ…", 10 to "NGAY BÂY GIỜ: buộc dừng app rồi mở lại")) { it.startLifeLog(600, realtimePage = true) },
         )
     }
 
@@ -73,8 +73,8 @@ class TestSuite(private val probe: HardwareProbe, private val store: SuiteStore,
 
     fun startStep(): String? {
         val s = _state.value
-        if (!s.active || s.running) return "Bateria não está aguardando uma etapa"
-        val step = s.current ?: return "Bateria concluída"
+        if (!s.active || s.running) return "Bộ kiểm tra không đang chờ bước nào"
+        val step = s.current ?: return "Đã hoàn tất bộ kiểm tra"
         step.start(probe)?.let { return it }
         update(s.copy(running = true))
         return null

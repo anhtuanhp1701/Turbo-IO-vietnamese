@@ -26,7 +26,7 @@ import java.time.format.DateTimeFormatter
 class HomeFragment : Fragment() {
     private val app get() = TurboApp.instance
     private lateinit var frame: FrameLayout
-    private var today: Pair<String, List<String>> = "Hoje" to listOf("Carregando…")
+    private var today: Pair<String, List<String>> = "Hôm nay" to listOf("Đang tải…")
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, saved: Bundle?): View =
         FrameLayout(requireContext()).also { frame = it }
@@ -53,7 +53,7 @@ class HomeFragment : Fragment() {
         val s = app.status.value
         val connected = when (s.phase) { Phase.READY -> true; Phase.IDLE, Phase.FAILED -> false; else -> null }
         val firmware = s.glassesVersions.split("·").firstOrNull { it.contains("1.") }?.substringAfter("=")?.trim()?.let { "Strix OS $it" }
-            ?: if (connected == true) "Firmware original" else if (app.session.hasSaved()) "Óculos salvo · toque em Conectar" else "Nenhum óculos salvo"
+            ?: if (connected == true) "Firmware gốc" else if (app.session.hasSaved()) "Đã lưu kính · bấm Kết nối" else "Chưa lưu kính nào"
         val model = HomeModel(
             name = s.deviceName.ifBlank { "RayNeo iO" }.take(24),
             connected = connected, connection = ConnectionFragment.phaseLabel(s.phase),
@@ -75,43 +75,43 @@ class HomeFragment : Fragment() {
     private fun tiles(connected: Boolean): List<Tile> {
         val st = app.settings
         val voiceOn = st.voiceSettings().enabled
-        val engine = st.sttConfig().engine.label.substringAfter("→ ", "").substringBefore(" (").ifEmpty { "microfone do telefone" }
+        val engine = st.sttConfig().engine.label.substringAfter("→ ", "").substringBefore(" (").ifEmpty { "micro điện thoại" }
         val rec = app.ambient.status.value.recording
         val tp = app.teleprompter.state.value
         val mem = st.memorySettings()
         val wake = app.glassesSettings.state.value.config
         val features = app.features.state.value
         return listOf(
-            Tile(R.drawable.ic_mic, "Assistente de voz", if (voiceOn) "Ligado · $engine" else "Desligado", voiceOn) {
+            Tile(R.drawable.ic_mic, "Trợ lý giọng nói", if (voiceOn) "Bật · $engine" else "Đã tắt", voiceOn) {
                 st.setVoiceEnabled(!voiceOn); render()
             },
             Tile(R.drawable.ic_chat, "Phiên dịch 2 chiều", if (app.interpreter.running) "Đang dịch" else "Bắt đầu", app.interpreter.running) {
                 main()?.open(InterpreterFragment())
             },
-            Tile(R.drawable.ic_record, "Gravar o dia", if (rec) "Gravando" else "Parado", rec) { main()?.go(R.id.nav_memory) },
-            Tile(R.drawable.ic_prompter, "Teleprompter", if (app.teleprompter.active) tp.phase.label.replaceFirstChar { it.uppercase() } else "Enviar roteiro",
+            Tile(R.drawable.ic_record, "Ghi lại ngày", if (rec) "Đang ghi" else "Đã dừng", rec) { main()?.go(R.id.nav_memory) },
+            Tile(R.drawable.ic_prompter, "Máy nhắc chữ", if (app.teleprompter.active) tp.phase.label.replaceFirstChar { it.uppercase() } else "Gửi kịch bản",
                 app.teleprompter.active) { main()?.open(TestFragment()) },
-            Tile(R.drawable.ic_bell, "Notificações", if (st.mirrorOn) "Ligado" + if (st.navOn) " · Maps" else "" else "Desligado", st.mirrorOn) { main()?.go(R.id.nav_glasses) },
-            Tile(R.drawable.ic_todo, "To-do nos óculos", if (mem.enabled && mem.glassesTodo) "Ligado" else "Desligado", mem.enabled && mem.glassesTodo) {
+            Tile(R.drawable.ic_bell, "Thông báo", if (st.mirrorOn) "Bật" + if (st.navOn) " · Maps" else "" else "Đã tắt", st.mirrorOn) { main()?.go(R.id.nav_glasses) },
+            Tile(R.drawable.ic_todo, "To-do trên kính", if (mem.enabled && mem.glassesTodo) "Bật" else "Đã tắt", mem.enabled && mem.glassesTodo) {
                 st.saveMemory(mem.copy(glassesTodo = !mem.glassesTodo)); app.memoryChanged(); render()
             },
-            Tile(R.drawable.ic_lookup, "Olhar para cima",
-                when (wake.wakeHeadup) { 1 -> "Ligado · ${wake.wakeDegree}°"; 0 -> "Desligado"; else -> if (connected) "Ler ajustes" else "—" },
+            Tile(R.drawable.ic_lookup, "Ngẩng đầu",
+                when (wake.wakeHeadup) { 1 -> "Bật · ${wake.wakeDegree}°"; 0 -> "Đã tắt"; else -> if (connected) "Đọc cài đặt" else "—" },
                 wake.wakeHeadup == 1) { main()?.go(R.id.nav_glasses) },
-            Tile(R.drawable.ic_weather, "Tempo", if (st.weatherOn) st.weatherCity.ifBlank { "Ligado" } else "Desligado", st.weatherOn) { main()?.go(R.id.nav_glasses) },
-            Tile(R.drawable.ic_flask, "Bateria de testes", if (features.active) "${features.results.size} de ${app.features.steps.size}" else "Testar tudo",
+            Tile(R.drawable.ic_weather, "Thời tiết", if (st.weatherOn) st.weatherCity.ifBlank { "Bật" } else "Đã tắt", st.weatherOn) { main()?.go(R.id.nav_glasses) },
+            Tile(R.drawable.ic_flask, "Bộ kiểm tra", if (features.active) "${features.results.size}/${app.features.steps.size}" else "Thử tất cả",
                 features.active) { main()?.open(DiagnosticsFragment()) },
         )
     }
 
     private fun loadToday(): Pair<String, List<String>> = runCatching {
-        if (!app.settings.memorySettings().enabled) return "Memória desligada" to listOf("Ligue em Memória → Pendências → Configurações.")
+        if (!app.settings.memorySettings().enabled) return "Bộ nhớ đang tắt" to listOf("Bật ở Bộ nhớ → Việc cần làm → Cài đặt.")
         val open = app.memoryStore.openItems(50)
-        if (open.isEmpty()) return "Sem pendências" to listOf("A memória cria pendências a partir das suas conversas.")
+        if (open.isEmpty()) return "Không có việc nào" to listOf("Bộ nhớ tạo việc cần làm từ các cuộc trò chuyện của bạn.")
         val fmt = DateTimeFormatter.ofPattern("dd/MM HH:mm")
         val lines = open.take(3).map { i ->
             i.text.take(60) + (i.dueAt?.let { " · " + Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).format(fmt) } ?: "")
         }
-        (if (open.size == 1) "1 pendência" else "${open.size} pendências") to lines
-    }.getOrElse { "Hoje" to listOf("Não foi possível ler a memória") }
+        (if (open.size == 1) "1 việc" else "${open.size} việc") to lines
+    }.getOrElse { "Hôm nay" to listOf("Không đọc được bộ nhớ") }
 }

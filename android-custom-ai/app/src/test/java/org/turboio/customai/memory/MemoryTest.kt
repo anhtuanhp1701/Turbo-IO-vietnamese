@@ -170,17 +170,17 @@ class MemoryTest {
             }
         }
         val q = MemoryQueries(journal, store, llm, zone)
-        assertEquals("1 pendência(s): 1) Enviar o relatório para a Marina — sex 23/10 15:00", q.pendingAnswer(at(11, 0)))
-        assertEquals("Nada pendente com Bruno.".let { "Não conheço ninguém chamado Bruno no diário." }, q.pendingAnswer(at(11, 0), "Bruno"))
+        assertEquals("1 việc: 1) Enviar o relatório para a Marina — sex 23/10 15:00", q.pendingAnswer(at(11, 0)))
+        assertEquals("Nada pendente com Bruno.".let { "Không có ai tên Bruno trong nhật ký." }, q.pendingAnswer(at(11, 0), "Bruno"))
         assertTrue(q.pendingAnswer(at(11, 0), "marina").contains("relatório"))
-        assertTrue(q.morningBrief(at(8, 0, 23))!!.contains("Hoje: Enviar o relatório para a Marina — hoje 15:00"))
-        assertTrue(q.morningBrief(at(8, 0, 24))!!.contains("Atrasadas:"))
+        assertTrue(q.morningBrief(at(8, 0, 23))!!.contains("Hôm nay: Enviar o relatório para a Marina — hôm nay 15:00"))
+        assertTrue(q.morningBrief(at(8, 0, 24))!!.contains("Quá hạn:"))
         assertEquals("Em 17/10 10:00 a Marina pediu o relatório.", q.search("o que a Marina pediu semana passada?", at(11, 0)))
         assertTrue(llm.calls.first().second.contains("Hoje: 2026-10-17"))
         val card = q.personCard(store.findPerson("Marina")!!, at(11, 0))
-        assertTrue(card.contains("Pendências:") && card.contains("Marina pediu o relatório até sexta."))
+        assertTrue(card.contains("Việc cần làm:") && card.contains("Marina pediu o relatório até sexta."))
         val week = q.weekly(at(19, 0, 18)) { null }!!
-        assertTrue(week.text.startsWith("Semana de trabalho.") && week.text.contains("Sugestões\n- Enviar o relatório"))
+        assertTrue(week.text.startsWith("Semana de trabalho.") && week.text.contains("Gợi ý\n- Enviar o relatório"))
         assertNull(q.weekly(at(19, 0, 25)) { null })                                   // empty week: nothing to review
         assertNotNull(store.findPerson("MARINA")); assertFalse(store.openItems().isEmpty())
     }

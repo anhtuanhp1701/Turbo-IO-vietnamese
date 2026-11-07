@@ -35,64 +35,64 @@ class TestFragment : Fragment() {
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, saved: Bundle?): View {
         val ui = Column(requireContext())
-        ui.header("Ferramentas", "Pergunte à IA e use o teleprompter")
-        ui.section("Pergunta à IA")
+        ui.header("Công cụ", "Hỏi AI và dùng máy nhắc chữ")
+        ui.section("Hỏi AI")
         val g1 = ui.card()
         question = g1.field("Nhập câu hỏi (tiếng Việt hoặc ngôn ngữ khác)", multiline = true)
-        ask = g1.button("Executar consulta") { runQuery() }
+        ask = g1.button("Hỏi") { runQuery() }
         aiStatus = g1.text(size = 13f)
-        ui.section("Resposta")
+        ui.section("Câu trả lời")
         val g2 = ui.card()
         answer = g2.text("—")
 
-        ui.section("Óculos")
+        ui.section("Kính")
         val g3 = ui.card()
-        g3.button("Transmitir resposta aos óculos") {
-            if (lastAnswer.isEmpty()) { lensStatus.text = "Execute uma consulta primeiro"; lensStatus.setTextColor(statusColor(false)); return@button }
+        g3.button("Gửi câu trả lời lên kính") {
+            if (lastAnswer.isEmpty()) { lensStatus.text = "Hãy hỏi một câu trước"; lensStatus.setTextColor(statusColor(false)); return@button }
             app.display.show(lastAnswer, app.settings.displaySettings())
         }
-        g3.button("Enviar texto de teste (acentuação pt-BR)", filled = false) {
-            app.display.show("Teste Turbo IO: olá! Ação, coração, café, você e pão. Se aparecerem quadrados, ative \"Remover acentos\".", app.settings.displaySettings())
+        g3.button("Gửi chữ thử (dấu tiếng Việt)", filled = false) {
+            app.display.show("Thử Turbo IO: xin chào! Tiếng Việt có dấu: ắ, ộ, ữ, đ, ỹ. Nếu thấy ô vuông, hãy bật \"Bỏ dấu\".", app.settings.displaySettings())
         }
-        g3.button("Parar exibição", filled = false) { app.display.stop() }
+        g3.button("Dừng hiển thị", filled = false) { app.display.stop() }
         lensStatus = g3.text(size = 13f)
-        g3.button("Limpar contexto da conversa", filled = false) { app.clearHistory(); aiStatus.text = "Contexto limpo" }
+        g3.button("Xóa ngữ cảnh hội thoại", filled = false) { app.clearHistory(); aiStatus.text = "Đã xóa ngữ cảnh" }
 
-        ui.section("Assistente de voz")
+        ui.section("Trợ lý giọng nói")
         val g4 = ui.card()
-        g4.hint("Acione o assistente nos óculos (gesto/botão de IA do firmware original) e fale. O app usa o motor escolhido na aba IA.")
+        g4.hint("Gọi trợ lý trên kính (cử chỉ/nút AI của firmware gốc) rồi nói. App dùng bộ nhận dạng đã chọn ở tab AI.")
         voiceStatus = g4.text(size = 13f)
 
-        ui.section("Teleprompter dos óculos")
+        ui.section("Máy nhắc chữ của kính")
         val g5 = ui.card()
-        g5.hint("Usa o teleprompter que já vem nos óculos. O roteiro vai como arquivo temporário (até 12 000 caracteres) e " +
-            "fica só no celular depois que você sai. Nada é instalado nos óculos. Ainda não funcionou nos seus óculos; a rev. 13 segue o app oficial 1.0.7.")
-        script = g5.field("Roteiro (cole o texto)", multiline = true)
-        g5.button("Abrir arquivo .txt", filled = false) { openScript.launch(arrayOf("text/plain")) }
+        g5.hint("Dùng máy nhắc chữ có sẵn trên kính. Kịch bản được gửi dưới dạng tệp tạm (tối đa 12 000 ký tự) và " +
+            "chỉ còn trên điện thoại sau khi bạn thoát. Không cài gì lên kính. Tính năng này chưa được xác nhận trên mọi kính.")
+        script = g5.field("Kịch bản (dán văn bản)", multiline = true)
+        g5.button("Mở tệp .txt", filled = false) { openScript.launch(arrayOf("text/plain")) }
         val speeds = (80..260 step 20).toList()
-        g5.text("Velocidade (palavras por minuto)", size = 13f)
+        g5.text("Tốc độ (từ mỗi phút)", size = 13f)
         g5.spinner(speeds, speeds.indexOf(prompterSpeed), { "$it" }) { prompterSpeed = it }
         var look = org.turboio.customai.device.Teleprompter.Look()
         val countdowns = listOf(0, 3, 5)
-        g5.spinner(countdowns, countdowns.indexOf(look.countdown), { if (it == 0) "Começar sem contagem" else "Contagem de $it s" }) { look = look.copy(countdown = it) }
-        val sizes = listOf(18 to "pequeno", 20 to "médio", 24 to "grande")
-        g5.spinner(sizes, 0, { "Texto ${it.second}" }) { look = look.copy(size = it.first) }
-        val levels = listOf(1 to "perto", 2 to "média", 3 to "longe")
-        g5.spinner(levels, 0, { "Profundidade ${it.second}" }) { look = look.copy(depth = it.first) }
-        val gears = listOf(1 to "baixo", 2 to "médio", 3 to "alto")
-        g5.spinner(gears, 0, { "Nível (gear) ${it.second}" }) { look = look.copy(gear = it.first) }
-        val spacings = listOf(0 to "sem espaço extra", 4 to "normal", 8 to "largo")
-        g5.spinner(spacings, 1, { "Entrelinha ${it.second}" }) { look = look.copy(leading = it.first) }
-        g5.button("Enviar roteiro aos óculos") { prompter { app.teleprompter.prepare(script.text.toString(), prompterSpeed, look) } }
-        g5.buttons("Iniciar" to { prompter { app.teleprompter.control(3) } },
-            "Pausar" to { prompter { app.teleprompter.control(4) } },
-            "Continuar" to { prompter { app.teleprompter.control(5) } })
-        g5.buttons("Aplicar velocidade" to { prompter { app.teleprompter.control(7, prompterSpeed) } },
-            "Sair" to { prompter { app.teleprompter.stop(); null } })
-        g5.hint("Os roteiros enviados (até ${org.turboio.customai.device.ScriptLibrary.MAX}) ficam salvos neste celular e aparecem no menu " +
-            "Teleprompter dos óculos; escolha um lá para abrir.")
-        g5.button("Apagar roteiros salvos", filled = false) {
-            app.scripts.clear(); android.widget.Toast.makeText(requireContext(), "Roteiros apagados", android.widget.Toast.LENGTH_SHORT).show()
+        g5.spinner(countdowns, countdowns.indexOf(look.countdown), { if (it == 0) "Bắt đầu không đếm ngược" else "Đếm ngược $it giây" }) { look = look.copy(countdown = it) }
+        val sizes = listOf(18 to "pequeno", 20 to "vừa", 24 to "grande")
+        g5.spinner(sizes, 0, { "Chữ ${it.second}" }) { look = look.copy(size = it.first) }
+        val levels = listOf(1 to "perto", 2 to "vừa", 3 to "longe")
+        g5.spinner(levels, 0, { "Độ sâu ${it.second}" }) { look = look.copy(depth = it.first) }
+        val gears = listOf(1 to "baixo", 2 to "vừa", 3 to "alto")
+        g5.spinner(gears, 0, { "Mức (gear) ${it.second}" }) { look = look.copy(gear = it.first) }
+        val spacings = listOf(0 to "không thêm khoảng trắng", 4 to "normal", 8 to "largo")
+        g5.spinner(spacings, 1, { "Giãn dòng ${it.second}" }) { look = look.copy(leading = it.first) }
+        g5.button("Gửi kịch bản lên kính") { prompter { app.teleprompter.prepare(script.text.toString(), prompterSpeed, look) } }
+        g5.buttons("Bắt đầu" to { prompter { app.teleprompter.control(3) } },
+            "Tạm dừng" to { prompter { app.teleprompter.control(4) } },
+            "Tiếp tục" to { prompter { app.teleprompter.control(5) } })
+        g5.buttons("Áp dụng tốc độ" to { prompter { app.teleprompter.control(7, prompterSpeed) } },
+            "Thoát" to { prompter { app.teleprompter.stop(); null } })
+        g5.hint("Các kịch bản đã gửi (tối đa ${org.turboio.customai.device.ScriptLibrary.MAX}) được lưu trên điện thoại này và hiện trong menu " +
+            "Máy nhắc chữ của kính; chọn một cái ở đó để mở.")
+        g5.button("Xóa các kịch bản đã lưu", filled = false) {
+            app.scripts.clear(); android.widget.Toast.makeText(requireContext(), "Đã xóa các kịch bản", android.widget.Toast.LENGTH_SHORT).show()
         }
         prompterStatus = g5.text(size = 13f)
         return ui.scroll()
@@ -104,8 +104,8 @@ class TestFragment : Fragment() {
                 launch { app.display.state.collect { renderLens(it) } }
                 launch {
                     app.teleprompter.state.collect { t ->
-                        prompterStatus.text = "Estado: ${t.phase.label} · ${t.note}" +
-                            (if (t.progress in 1..99) "\nEnvio: ${t.progress}%" else "") + "\nVelocidade: ${t.speed}"
+                        prompterStatus.text = "Trạng thái: ${t.phase.label} · ${t.note}" +
+                            (if (t.progress in 1..99) "\nĐã gửi: ${t.progress}%" else "") + "\nTốc độ: ${t.speed}"
                         prompterStatus.setTextColor(statusColor(when (t.phase) {
                             org.turboio.customai.device.Teleprompter.Phase.ERROR -> false
                             org.turboio.customai.device.Teleprompter.Phase.READY, org.turboio.customai.device.Teleprompter.Phase.RUNNING -> true
@@ -115,11 +115,11 @@ class TestFragment : Fragment() {
                 }
                 launch {
                     app.voice.state.collect { v ->
-                        voiceStatus.text = "Estado: ${v.phase} · ${v.note}" +
-                            (if (v.transcript.isNotEmpty()) "\nVocê: ${v.transcript}" else "") +
-                            (if (v.answer.isNotEmpty()) "\nIA: ${v.answer.take(300)}" else "") +
-                            (if (v.audioPackets > 0) "\nÁudio dos óculos: ${v.audioPackets} pacotes / ${v.audioMs} ms" else "") +
-                            "\nRodadas concluídas: ${v.rounds}"
+                        voiceStatus.text = "Trạng thái: ${v.phase} · ${v.note}" +
+                            (if (v.transcript.isNotEmpty()) "\nBạn: ${v.transcript}" else "") +
+                            (if (v.answer.isNotEmpty()) "\nAI: ${v.answer.take(300)}" else "") +
+                            (if (v.audioPackets > 0) "\nÂm thanh từ kính: ${v.audioPackets} gói / ${v.audioMs} ms" else "") +
+                            "\nSố lượt đã xong: ${v.rounds}"
                         voiceStatus.setTextColor(statusColor(if (v.lastError.isNotEmpty() && v.note == v.lastError) false else null))
                     }
                 }
@@ -129,10 +129,10 @@ class TestFragment : Fragment() {
 
     private fun renderLens(s: DisplayState) {
         val (text, ok) = when (s) {
-            DisplayState.Idle -> "Exibição: inativa" to null
-            is DisplayState.Opening -> "Abrindo exibição (${s.pages} página(s))…" to null
-            is DisplayState.Showing -> "✓ Página ${s.page}/${s.pages} enviada: \"${s.text}\"" to true
-            is DisplayState.Done -> "✓ Exibição concluída (${s.pages} página(s)). Confirme visualmente nas lentes." to true
+            DisplayState.Idle -> "Hiển thị: không hoạt động" to null
+            is DisplayState.Opening -> "Đang mở hiển thị (${s.pages} trang)…" to null
+            is DisplayState.Showing -> "✓ Đã gửi trang ${s.page}/${s.pages}: \"${s.text}\"" to true
+            is DisplayState.Done -> "✓ Hiển thị xong (${s.pages} trang). Hãy kiểm tra bằng mắt trên kính." to true
             is DisplayState.Failed -> "✗ ${s.reason}" to false
         }
         lensStatus.text = text; lensStatus.setTextColor(statusColor(ok))
@@ -156,16 +156,16 @@ class TestFragment : Fragment() {
                     }
                 }.getOrNull()
             }
-            if (text == null) { prompterStatus.text = "✗ Arquivo não lido ou maior que 48 KB"; prompterStatus.setTextColor(statusColor(false)) }
+            if (text == null) { prompterStatus.text = "✗ Không đọc được tệp hoặc tệp lớn hơn 48 KB"; prompterStatus.setTextColor(statusColor(false)) }
             else script.setText(text)
         }
     }
 
     private fun runQuery() {
         val q = question.text.toString().trim()
-        if (q.isEmpty()) { aiStatus.text = "Digite uma pergunta"; return }
+        if (q.isEmpty()) { aiStatus.text = "Hãy nhập câu hỏi"; return }
         ask.isEnabled = false
-        aiStatus.text = "Consultando ${app.settings.aiConfig().provider.label}…"; aiStatus.setTextColor(statusColor(null))
+        aiStatus.text = "Đang hỏi ${app.settings.aiConfig().provider.label}…"; aiStatus.setTextColor(statusColor(null))
         viewLifecycleOwner.lifecycleScope.launch {
             try {
                 // Questions about the journal ("resumo do meu dia", "o que falei sobre X") are answered from it.
@@ -173,15 +173,15 @@ class TestFragment : Fragment() {
                     lastAnswer = fromJournal
                     answer.text = DisplayText.clean(fromJournal, app.settings.displaySettings().stripAccents)
                     app.speaker.speak(fromJournal)
-                    aiStatus.text = "✓ Respondido a partir do diário"; aiStatus.setTextColor(statusColor(true))
+                    aiStatus.text = "✓ Đã trả lời từ nhật ký"; aiStatus.setTextColor(statusColor(true))
                     return@launch
                 }
                 val result = app.askAi(q)
                 lastAnswer = result.text
                 answer.text = DisplayText.clean(result.text, app.settings.displaySettings().stripAccents)
                 app.speaker.speak(result.text)
-                aiStatus.text = "✓ ${result.provider.label} · ${result.model} · ${result.latencyMs} ms · ${result.text.length} caracteres" +
-                    if (result.truncated) " · resposta truncada pelo limite de tokens" else ""
+                aiStatus.text = "✓ ${result.provider.label} · ${result.model} · ${result.latencyMs} ms · ${result.text.length} ký tự" +
+                    if (result.truncated) " · câu trả lời bị cắt do giới hạn token" else ""
                 aiStatus.setTextColor(statusColor(true))
             } catch (e: Exception) {
                 aiStatus.text = "✗ " + TurboApp.friendly(e); aiStatus.setTextColor(statusColor(false))

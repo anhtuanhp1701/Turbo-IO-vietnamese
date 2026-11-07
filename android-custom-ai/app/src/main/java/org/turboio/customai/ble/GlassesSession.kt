@@ -29,7 +29,7 @@ enum class Phase { IDLE, CONNECTING, AUTHENTICATING, PAIRING, INITIALIZING, READ
 
 data class SessionStatus(
     val phase: Phase = Phase.IDLE,
-    val note: String = "Nenhum óculos conectado",
+    val note: String = "Chưa kết nối kính nào",
     val deviceName: String = "",
     val battery: Int = -1,
     val mtu: Int = 23,
@@ -112,8 +112,8 @@ class GlassesSession(
      */
     override fun sendFile(payload: ByteArray, business: Int, done: (String?) -> Unit) = scheduler.post {
         val reason = when {
-            status.phase != Phase.READY || link == null -> "Óculos não conectado"
-            !fileLease() -> "Canal de arquivo fechado (só durante o teleprompter)"
+            status.phase != Phase.READY || link == null -> "Chưa kết nối kính"
+            !fileLease() -> "Kênh tệp đang đóng (chỉ mở khi dùng máy nhắc chữ)"
             else -> org.turboio.customai.protocol.FileTransfer.outboundProblem(payload, business)
         }
         if (reason != null) { DiagnosticLog.w(tag, "arquivo recusado: $reason"); done(reason); return@post }
@@ -126,7 +126,7 @@ class GlassesSession(
     private fun enqueueSplit(frame: ByteArray, maxParts: Int, done: (String?) -> Unit) {
         val size = status.mtu - 3
         val parts = (0 until frame.size step size).map { frame.copyOfRange(it, minOf(frame.size, it + size)) }
-        if (parts.size > maxParts || txQueue.size + parts.size > maxOf(200, maxParts + 64)) { done("Conteúdo grande demais para o MTU atual (${status.mtu})"); return }
+        if (parts.size > maxParts || txQueue.size + parts.size > maxOf(200, maxParts + 64)) { done("Nội dung quá lớn so với MTU hiện tại (${status.mtu})"); return }
         val group = Any(); var failed = false
         parts.forEachIndexed { i, part ->
             val partDone: (String?) -> Unit = partDone@{ error ->
@@ -159,10 +159,10 @@ class GlassesSession(
     fun connect(address: String, name: String) = scheduler.post {
         val saved = store.load()
         if (saved != null && saved.address != address) {
-            phase(Phase.FAILED, "Já existe um óculos salvo. Use \"Esquecer óculos\" antes de trocar de dispositivo.")
+            phase(Phase.FAILED, "Đã có một kính được lưu. Hãy dùng \"Quên kính\" trước khi đổi thiết bị.")
             return@post
         }
-        stopInternal("novo pedido de conexão")
+        stopInternal("yêu cầu kết nối mới")
         target = saved ?: SavedGlasses(address, "", Advertisementless(name), true)
         retries = 0
         beginVersionProbe()
@@ -177,12 +177,12 @@ class GlassesSession(
         return true
     }
 
-    fun disconnect() = scheduler.post { stopInternal("desconexão pelo usuário"); phase(Phase.IDLE, "Desconectado pelo usuário") }
+    fun disconnect() = scheduler.post { stopInternal("người dùng ngắt kết nối"); phase(Phase.IDLE, "Người dùng đã ngắt kết nối") }
 
     /** Forgets the saved glasses (needed before re-binding the official app). Does not touch the system bond. */
     fun forget() = scheduler.post {
-        stopInternal("esquecer óculos"); store.clear()
-        publish { SessionStatus(note = "Óculos esquecido. Remova também o pareamento nas configurações de Bluetooth do Android para voltar ao app oficial.") }
+        stopInternal("quên kính"); store.clear()
+        publish { SessionStatus(note = "Đã quên kính. Hãy xóa cả ghép đôi trong cài đặt Bluetooth của Android để quay lại app chính thức.") }
     }
 
     /**
@@ -200,9 +200,9 @@ class GlassesSession(
             if (business == Business.LAUNCHER && EnvelopeCodec.decode(envelope).type == 18) { enqueueSplit(frame, 16, done); return@post }
             // The teleprompter's script list (20/1) can also be longer than one write.
             if (business == Business.TELEPROMPTER && EnvelopeCodec.decode(envelope).type == 1) { enqueueSplit(frame, 16, done); return@post }
-            done("Conteúdo excede o quadro BLE atual (MTU ${status.mtu}); encurte o texto"); return@post
+            done("Nội dung vượt khung BLE hiện tại (MTU ${status.mtu}); hãy rút ngắn văn bản"); return@post
         }
-        if (txQueue.size >= 32) { done("Fila de envio cheia; tente novamente"); return@post }
+        if (txQueue.size >= 32) { done("Hàng đợi gửi đã đầy; hãy thử lại"); return@post }
         txQueue.addLast(Pending(frame, done))
         pump()
     }
@@ -211,11 +211,11 @@ class GlassesSession(
     fun requestStatus(done: (String?) -> Unit) = send(Business.LAUNCHER, Commands.generalStatusQuery(), done)
 
     private fun admit(business: Int, envelope: ByteArray): String? {
-        if (status.phase != Phase.READY || link == null) return "Óculos não conectado"
-        val decoded = try { EnvelopeCodec.decode(envelope) } catch (_: Exception) { return "Envelope inválido" }
+        if (status.phase != Phase.READY || link == null) return "Chưa kết nối kính"
+        val decoded = try { EnvelopeCodec.decode(envelope) } catch (_: Exception) { return "Gói tin không hợp lệ" }
         val type = decoded.type
         if (!Business.outboundAllowed(business, type) || !Business.contentAllowed(business, type, decoded.jsonText())) {
-            return "Comando não permitido (business=$business type=$type)"
+            return "Lệnh không được phép (business=$business type=$type)"
         }
         return null
     }
@@ -225,7 +225,7 @@ class GlassesSession(
     private fun beginVersionProbe() {
         val target = target ?: return
         val token = ++intent
-        phase(Phase.CONNECTING, "Conectando e verificando a identidade dos óculos…")
+        phase(Phase.CONNECTING, "Đang kết nối và xác minh danh tính kính…")
         val request = VersionExchange.request(versionInput(identity()))
         var sent = false
         var reply: VersionReply? = null
@@ -268,7 +268,7 @@ class GlassesSession(
         val target = target ?: return
         val expected = peer ?: return
         val token = ++intent
-        phase(Phase.AUTHENTICATING, "Identidade confirmada; autenticando…")
+        phase(Phase.AUTHENTICATING, "Đã xác nhận danh tính; đang xác thực…")
         exchange = GuestAuthExchange()
         openLink(token, target.address, onReady = {
             val seq = random.bytes(2)
@@ -318,7 +318,7 @@ class GlassesSession(
 
     private fun beginPairing(token: Long) {
         val target = target ?: return
-        phase(Phase.PAIRING, "Autenticado. Confirme o pareamento Bluetooth se o Android solicitar…")
+        phase(Phase.PAIRING, "Đã xác thực. Hãy xác nhận ghép đôi Bluetooth nếu Android hỏi…")
         if (bond.isBonded(target.address)) { initialize(token); return }
         deadline(token, 60000, "system-pair-timeout")
         bondRequest = bond.ensureBond(target.address) { ok ->
@@ -330,7 +330,7 @@ class GlassesSession(
     }
 
     private fun initialize(token: Long) {
-        phase(Phase.INITIALIZING, "Pareado. Lendo estado e bateria dos óculos…")
+        phase(Phase.INITIALIZING, "Đã ghép đôi. Đang đọc trạng thái và pin của kính…")
         deadline(token, 12000, "status-timeout")
         val frame = FrameCodec.encode(FramePacket(messageNumber, 0, null, ByteArray(0), Business.LAUNCHER, Commands.generalStatusQuery()))
         messageNumber = (messageNumber + 1) and 0xffff
@@ -375,7 +375,7 @@ class GlassesSession(
             runCatching { store.save(saved) }.onFailure { DiagnosticLog.w(tag, "falha ao salvar óculos verificado") }
             target = saved
             publish { it.copy(readySince = scheduler.now(), retries = 0, deviceName = t.name) }
-            phase(Phase.READY, "Conectado · autenticado · bateria ${if (status.battery >= 0) "${status.battery}%" else "?"}")
+            phase(Phase.READY, "Đã kết nối · đã xác thực · pin ${if (status.battery >= 0) "${status.battery}%" else "?"}")
         }
     }
 
@@ -461,7 +461,7 @@ class GlassesSession(
         val next = txQueue.removeFirst()
         writeRaw(intent, next.frame) { error ->
             if (error != null) DiagnosticLog.w(tag, "escrita BLE falhou: $error")
-            next.done(error?.let { "Falha na escrita Bluetooth ($it)" })
+            next.done(error?.let { "Lỗi ghi Bluetooth ($it)" })
         }
     }
 
@@ -499,7 +499,7 @@ class GlassesSession(
         intent++
         DiagnosticLog.w(tag, "conexão encerrada: $reason (fase ${status.phase})")
         val queued = ArrayList(txQueue); txQueue.clear()
-        queued.forEach { runCatching { it.done("Conexão perdida antes do envio") } }
+        queued.forEach { runCatching { it.done("Mất kết nối trước khi gửi") } }
         stopRadio()
         publish { it.copy(lastReason = reason, readySince = 0) }
         val saved = store.load()
@@ -507,7 +507,7 @@ class GlassesSession(
         if ((transient(reason) || wasReady) && saved != null && saved.autoConnect && retries < delays.size) {
             val delay = delays[retries++]
             publish { it.copy(retries = retries) }
-            phase(Phase.RETRYING, "Conexão interrompida (${describe(reason)}). Nova tentativa em ${delay / 1000}s ($retries/${delays.size})")
+            phase(Phase.RETRYING, "Kết nối bị gián đoạn (${describe(reason)}). Thử lại sau ${delay / 1000}s ($retries/${delays.size})")
             val retryToken = intent
             retryTimer = scheduler.postDelayed(delay) {
                 if (retryToken != intent) return@postDelayed
@@ -531,24 +531,24 @@ class GlassesSession(
         intent++
         retryTimer?.cancel(); retryTimer = null
         val queued = ArrayList(txQueue); txQueue.clear()
-        queued.forEach { runCatching { it.done("Envio cancelado: $why") } }
+        queued.forEach { runCatching { it.done("Đã hủy gửi: $why") } }
         stopRadio()
         retries = 0
     }
 
     companion object {
         fun describe(reason: String): String = when (reason) {
-            "account-bound-peer" -> "Os óculos ainda estão vinculados a uma conta do app oficial. Desvincule-os no app RayNeo e coloque-os em modo de pareamento."
-            "peer-mismatch", "peer-identifier-mismatch" -> "A identidade dos óculos não corresponde à salva. Conexão interrompida por segurança."
-            "proof-mismatch", "proof-invalid" -> "Falha na verificação de autenticidade dos óculos."
-            "unsupported-version" -> "Versão de protocolo não suportada por este app."
-            "system-pair-failed", "system-pair-timeout" -> "Pareamento Bluetooth do sistema não concluído."
-            "mtu-too-small-no-fragmentation" -> "MTU Bluetooth insuficiente; reinicie o Bluetooth e tente de novo."
-            "status-timeout" -> "Os óculos não responderam à leitura de estado."
-            "disconnected" -> "Bluetooth desconectado"
-            "transport-timeout", "version-timeout", "auth-timeout" -> "Tempo esgotado ao conectar"
-            "service-missing" -> "Serviço RayNeo não encontrado neste dispositivo."
-            else -> "Falha de conexão ($reason)"
+            "account-bound-peer" -> "Kính vẫn đang liên kết với tài khoản của app chính thức. Hãy hủy liên kết trong app RayNeo và đưa kính vào chế độ ghép đôi."
+            "peer-mismatch", "peer-identifier-mismatch" -> "Danh tính kính không khớp với kính đã lưu. Đã ngắt kết nối để đảm bảo an toàn."
+            "proof-mismatch", "proof-invalid" -> "Xác minh tính xác thực của kính thất bại."
+            "unsupported-version" -> "App này không hỗ trợ phiên bản giao thức của kính."
+            "system-pair-failed", "system-pair-timeout" -> "Chưa hoàn tất ghép đôi Bluetooth của hệ thống."
+            "mtu-too-small-no-fragmentation" -> "MTU Bluetooth không đủ; hãy khởi động lại Bluetooth rồi thử lại."
+            "status-timeout" -> "Kính không phản hồi khi đọc trạng thái."
+            "disconnected" -> "Bluetooth đã ngắt kết nối"
+            "transport-timeout", "version-timeout", "auth-timeout" -> "Hết thời gian chờ khi kết nối"
+            "service-missing" -> "Không tìm thấy dịch vụ RayNeo trên thiết bị này."
+            else -> "Kết nối thất bại ($reason)"
         }
 
         @Suppress("FunctionName")

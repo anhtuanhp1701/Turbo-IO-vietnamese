@@ -65,11 +65,11 @@ class ProbeFiles(private val context: Context) : ProbeSink {
         File(dir, "resultado.txt").writeText(buildString {
             append("[${step.id}] ${step.title}\n")
             append("App ${BuildConfig.VERSION_NAME} · Android ${android.os.Build.VERSION.RELEASE} · ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}\n\n")
-            append("O que o app fez: ${step.instructions}\nPergunta: ${step.question}\n\n")
-            append("Veredito do usuário: ${result.verdict}\nObservação: ${result.note.ifEmpty { "—" }}\n\n")
-            append("Resultado do app:\n${result.outcome}\n")
+            append("App đã làm: ${step.instructions}\nCâu hỏi: ${step.question}\n\n")
+            append("Đánh giá của người dùng: ${result.verdict}\nNhận xét: ${result.note.ifEmpty { "—" }}\n\n")
+            append("Kết quả của app:\n${result.outcome}\n")
         })
-        File(dir, "trafego.txt").writeText(if (traffic.isEmpty()) "(nenhuma mensagem trocada com os óculos)" else traffic.joinToString("\n"))
+        File(dir, "trafego.txt").writeText(if (traffic.isEmpty()) "(không có tin nhắn nào trao đổi với kính)" else traffic.joinToString("\n"))
         File(dir, "log.txt").writeText(DiagnosticLog.snapshot().filter { it.time >= startedAt - 1000 }.joinToString("\n") { it.format() })
         return dir.name
     }
@@ -99,7 +99,7 @@ class ProbeFiles(private val context: Context) : ProbeSink {
         DiagnosticLog.i("SONDA", "pacote com ${dirs.size} testes: ${zip.length() / 1024} KB")
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", zip)
         return Intent.createChooser(Intent(Intent.ACTION_SEND).setType("application/zip").putExtra(Intent.EXTRA_STREAM, uri)
-            .putExtra(Intent.EXTRA_SUBJECT, "Turbo IO · ${zip.name}").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION), "Enviar todos os testes")
+            .putExtra(Intent.EXTRA_SUBJECT, "Turbo IO · ${zip.name}").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION), "Gửi tất cả bài thử")
     }
 
     fun report(dir: File): JSONObject? = runCatching { JSONObject(File(dir, "report.json").readText()) }.getOrNull()
@@ -116,6 +116,6 @@ class ProbeFiles(private val context: Context) : ProbeSink {
         }
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", zip)
         return Intent.createChooser(Intent(Intent.ACTION_SEND).setType("application/zip").putExtra(Intent.EXTRA_STREAM, uri)
-            .putExtra(Intent.EXTRA_SUBJECT, "Turbo IO · ${dir.name}").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION), "Enviar pacote de diagnóstico")
+            .putExtra(Intent.EXTRA_SUBJECT, "Turbo IO · ${dir.name}").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION), "Gửi gói chẩn đoán")
     }
 }

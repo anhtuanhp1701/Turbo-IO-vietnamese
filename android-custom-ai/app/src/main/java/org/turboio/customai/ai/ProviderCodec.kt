@@ -10,22 +10,22 @@ object ProviderCodec {
     private val MODEL = Regex("^[A-Za-z0-9._:/@-]{1,160}$")
 
     fun validate(config: AiConfig, apiKey: String): String? {
-        if (apiKey.isBlank()) return "Informe a chave de API do provedor"
-        if (apiKey.length > 512 || apiKey.any { it.isWhitespace() || it.code < 0x20 }) return "Chave de API com formato inválido"
-        if (!MODEL.matches(config.model.trim())) return "Modelo inválido"
-        if (config.maxTokens !in 16..8192) return "Limite de tokens deve ficar entre 16 e 8192"
-        if (config.timeoutSeconds !in 5..180) return "Tempo máximo deve ficar entre 5 e 180 segundos"
-        if (config.systemPrompt.length > 8000) return "Instruções de sistema muito longas (máx. 8000 caracteres)"
+        if (apiKey.isBlank()) return "Hãy nhập khóa API của nhà cung cấp"
+        if (apiKey.length > 512 || apiKey.any { it.isWhitespace() || it.code < 0x20 }) return "Khóa API sai định dạng"
+        if (!MODEL.matches(config.model.trim())) return "Model không hợp lệ"
+        if (config.maxTokens !in 16..8192) return "Giới hạn token phải từ 16 đến 8192"
+        if (config.timeoutSeconds !in 5..180) return "Thời gian chờ phải từ 5 đến 180 giây"
+        if (config.systemPrompt.length > 8000) return "Hướng dẫn hệ thống quá dài (tối đa 8000 ký tự)"
         return endpointError(config)
     }
 
     private fun endpointError(config: AiConfig): String? {
         val endpoint = resolvedEndpoint(config)
-        val uri = try { URI(endpoint) } catch (_: Exception) { return "Endpoint inválido" }
-        if (!"https".equals(uri.scheme, true) || uri.host.isNullOrBlank()) return "O endpoint deve usar HTTPS"
-        if (uri.rawUserInfo != null || uri.rawQuery != null || uri.rawFragment != null) return "Endpoint não pode conter usuário, parâmetros ou fragmento"
+        val uri = try { URI(endpoint) } catch (_: Exception) { return "Địa chỉ API không hợp lệ" }
+        if (!"https".equals(uri.scheme, true) || uri.host.isNullOrBlank()) return "Địa chỉ API phải dùng HTTPS"
+        if (uri.rawUserInfo != null || uri.rawQuery != null || uri.rawFragment != null) return "Địa chỉ API không được chứa tên người dùng, tham số hoặc phân đoạn"
         if (config.provider == ProviderKind.OPENAI_COMPATIBLE && !uri.path.endsWith("/chat/completions")) {
-            return "Endpoint compatível deve terminar em /chat/completions"
+            return "Địa chỉ API tương thích phải kết thúc bằng /chat/completions"
         }
         return null
     }
@@ -96,10 +96,10 @@ object ProviderCodec {
 
     fun parse(kind: ProviderKind, result: HttpResult): Parsed {
         if (result.status !in 200..299) throw httpError(kind, result)
-        val json = try { JSONObject(result.body) } catch (_: Exception) { throw AiException("Resposta do provedor não é JSON válido", result.status) }
+        val json = try { JSONObject(result.body) } catch (_: Exception) { throw AiException("Phản hồi của nhà cung cấp không phải JSON hợp lệ", result.status) }
         val (text, truncated) = when (kind) {
             ProviderKind.OPENAI, ProviderKind.OPENAI_COMPATIBLE -> {
-                val choice = json.optJSONArray("choices")?.optJSONObject(0) ?: throw AiException("Resposta sem 'choices'")
+                val choice = json.optJSONArray("choices")?.optJSONObject(0) ?: throw AiException("Phản hồi không có 'choices'")
                 val content = choice.optJSONObject("message")?.opt("content")
                 val text = when (content) {
                     is String -> content
@@ -112,7 +112,7 @@ object ProviderCodec {
                 val candidate = json.optJSONArray("candidates")?.optJSONObject(0)
                 if (candidate == null) {
                     val blocked = json.optJSONObject("promptFeedback")?.optString("blockReason").orEmpty()
-                    throw AiException(if (blocked.isNotEmpty()) "Pergunta bloqueada pelo filtro do Gemini ($blocked)" else "Resposta sem candidatos")
+                    throw AiException(if (blocked.isNotEmpty()) "Câu hỏi bị bộ lọc của Gemini chặn ($blocked)" else "Phản hồi không có kết quả")
                 }
                 val parts = candidate.optJSONObject("content")?.optJSONArray("parts") ?: JSONArray()
                 val text = (0 until parts.length()).mapNotNull { i ->
@@ -129,7 +129,7 @@ object ProviderCodec {
             }
         }
         if (text.isBlank()) {
-            throw AiException(if (truncated) "Limite de tokens atingido antes da resposta; aumente o limite de tokens" else "O provedor retornou uma resposta vazia")
+            throw AiException(if (truncated) "Đã chạm giới hạn token trước khi trả lời; hãy tăng giới hạn token" else "Nhà cung cấp trả về câu trả lời rỗng")
         }
         return Parsed(text.trim(), truncated)
     }
@@ -142,15 +142,15 @@ object ProviderCodec {
         } catch (_: Exception) { "" }
         val keyProblem = Regex("(?i)api[ _-]?key|x-api-key|invalid authentication|unauthenticated").containsMatchIn(detail)
         val summary = when (result.status) {
-            400 -> if (keyProblem) "Chave de API inválida" else "Requisição recusada (verifique modelo e parâmetros)"
-            401 -> "Chave de API inválida"
-            403 -> "Chave sem permissão para este modelo/serviço"
-            404 -> "Modelo ou endpoint não encontrado"
-            408, 504 -> "Tempo esgotado no provedor"
-            413 -> "Requisição grande demais"
-            429 -> "Limite de uso ou cota excedido"
-            in 500..599 -> "Erro temporário no servidor do provedor"
-            else -> "Falha HTTP"
+            400 -> if (keyProblem) "Khóa API không hợp lệ" else "Yêu cầu bị từ chối (kiểm tra model và tham số)"
+            401 -> "Khóa API không hợp lệ"
+            403 -> "Khóa không có quyền dùng model/dịch vụ này"
+            404 -> "Không tìm thấy model hoặc địa chỉ API"
+            408, 504 -> "Nhà cung cấp hết thời gian chờ"
+            413 -> "Yêu cầu quá lớn"
+            429 -> "Vượt giới hạn sử dụng hoặc hạn mức"
+            in 500..599 -> "Máy chủ nhà cung cấp đang lỗi tạm thời"
+            else -> "Lỗi HTTP"
         }
         val safe = Redactor.redact(detail).replace(Regex("\\s+"), " ").take(160)
         return AiException("${kind.label}: $summary (HTTP ${result.status})" + if (safe.isNotEmpty()) " · $safe" else "", result.status)

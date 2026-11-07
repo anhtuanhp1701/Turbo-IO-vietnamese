@@ -24,12 +24,12 @@ class NativeNotifierTest {
 
     @Test fun switchOnceThenCardAndStateAnswer() = runTest {
         val n = NativeNotifier(port, this, fixedRandom, zone) { now }
-        val first = async { n.show("Lembrete", "Ligar para o dentista — 10:00") }
+        val first = async { n.show("Lời nhắc", "Ligar para o dentista — 10:00") }
         runCurrent()
         assertEquals(listOf("21/18", "21/2"), port.trace())
         assertEquals("""{"notification":true}""", port.sent[0].second.jsonText())
         val card = JSONObject(port.sent[1].second.jsonText())
-        assertEquals("Lembrete", card.getString("title")); assertEquals("Turbo IO", card.getString("appName"))
+        assertEquals("Lời nhắc", card.getString("title")); assertEquals("Turbo IO", card.getString("appName"))
         assertEquals("2026-10-17T15:04:05.006", card.getString("timestamp")); assertEquals(1, card.getInt("type")); assertFalse(card.getBoolean("reply"))
         port.glasses(21, 3, """{"notificationUID":"${card.getString("notificationUID")}","state":1}"""); runCurrent()
         assertEquals(NativeNotifier.Outcome.SHOWN, first.await())

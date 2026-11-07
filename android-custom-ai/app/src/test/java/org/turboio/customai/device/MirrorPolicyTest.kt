@@ -15,15 +15,15 @@ class MirrorPolicyTest {
     @Test fun chosenAppsOnlyOnceAndNotTooFast() {
         assertEquals(Action.Card("WhatsApp", "Marina", "Chego em 10 min"), policy.decide(wa("Marina", "Chego em  10 min")))
         now += 1000
-        assertEquals("muitas seguidas", (policy.decide(wa("João", "Oi")) as Action.Skip).reason)
+        assertEquals("quá nhiều liên tiếp", (policy.decide(wa("João", "Oi")) as Action.Skip).reason)
         now += 5000
         assertEquals("repetida", (policy.decide(wa("Marina", "Chego em 10 min")) as Action.Skip).reason)
         assertTrue(policy.decide(wa("João", "Oi")) is Action.Card)
         now += 70_000
         assertTrue(policy.decide(wa("Marina", "Chego em 10 min")) is Action.Card)          // repeated after a minute: shown again
-        assertEquals("app não escolhido", (policy.decide(Incoming("com.bank", "Banco", "Código", "123456", false, false)) as Action.Skip).reason)
-        assertEquals("resumo de grupo", (policy.decide(wa("2 mensagens", "").copy(groupSummary = true)) as Action.Skip).reason)
-        assertEquals("próprio app", (policy.decide(Incoming("org.turboio.customai", "Turbo", "x", "y", false, false)) as Action.Skip).reason)
+        assertEquals("app không được chọn", (policy.decide(Incoming("com.bank", "Banco", "Código", "123456", false, false)) as Action.Skip).reason)
+        assertEquals("tóm tắt nhóm", (policy.decide(wa("2 mensagens", "").copy(groupSummary = true)) as Action.Skip).reason)
+        assertEquals("chính app này", (policy.decide(Incoming("org.turboio.customai", "Turbo", "x", "y", false, false)) as Action.Skip).reason)
         now += 10_000
         assertTrue(policy.decide(wa("Upload", "50%").copy(ongoing = true)) is Action.Skip)
         assertEquals("WhatsApp", MirrorPolicy.name("com.whatsapp", null)); assertEquals("Foo", MirrorPolicy.name("com.example.foo", null))
@@ -35,12 +35,12 @@ class MirrorPolicyTest {
         nav = true
         assertEquals(Action.Nav("200 m · Rua Augusta"), policy.decide(maps("200 m", "Rua Augusta")))
         now += 2000
-        assertEquals("distância (aguardando)", (policy.decide(maps("150 m", "Rua Augusta")) as Action.Skip).reason)
+        assertEquals("khoảng cách (đang chờ)", (policy.decide(maps("150 m", "Rua Augusta")) as Action.Skip).reason)
         now += 1000
         assertEquals(Action.Nav("50 m · Av. Paulista"), policy.decide(maps("50 m", "Av. Paulista")))   // new street: right away
         now += 9000
         assertEquals(Action.Nav("20 m · Av. Paulista"), policy.decide(maps("20 m", "Av. Paulista")))
-        assertEquals("sem mudança", (policy.decide(maps("20 m", "Av. Paulista")) as Action.Skip).reason)
+        assertEquals("không thay đổi", (policy.decide(maps("20 m", "Av. Paulista")) as Action.Skip).reason)
     }
 
     @Test fun choiceListOffersInstalledKnownAppsWithDefaults() {

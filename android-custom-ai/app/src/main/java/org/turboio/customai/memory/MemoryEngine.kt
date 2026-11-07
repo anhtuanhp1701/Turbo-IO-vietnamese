@@ -43,7 +43,7 @@ object MemoryPrompts {
 
     val EXTRACT = """Você é a memória pessoal de quem usa óculos inteligentes. Recebe UMA conversa do dia (transcrição automática,
 pode ter erros) e devolve só o que for útil depois. "Você" é a dona/o dono da memória; "Pessoa A·2" etc. são outras pessoas
-sem nome conhecido (o número separa trechos diferentes). Português do Brasil.
+sem nome conhecido (o número separa trechos diferentes). Escreva todo o texto em vietnamita (tiếng Việt).
 
 Regras:
 - Não invente. Use só o que está na conversa.
@@ -69,7 +69,7 @@ Responda APENAS com um objeto JSON válido, sem Markdown, neste formato:
 
     const val RETRY = "Sua resposta anterior não era um JSON válido. Responda novamente APENAS com o objeto JSON pedido."
 
-    const val QUICK = """Transforme o pedido da pessoa em UMA pendência. Português do Brasil. Responda APENAS com JSON:
+    const val QUICK = """Transforme o pedido da pessoa em UMA pendência. Escreva todo o texto em vietnamita (tiếng Việt). Responda APENAS com JSON:
 {"texto": "verbo no infinitivo + objeto, curto", "tipo": "tarefa|compromisso", "quando": "AAAA-MM-DDTHH:MM ou vazio",
  "quando_texto": "como a pessoa disse o prazo, ou vazio", "pessoa": "nome de outra pessoa envolvida, ou vazio"}
 Calcule "quando" a partir da data e hora atuais informadas; sem hora dita, use 09:00; sem prazo, deixe vazio."""
@@ -220,7 +220,7 @@ class MemoryEngine(
         if (policy == CategoryPolicy.DELETE) {
             d.entries.filter { it.kind == EntryKind.AMBIENT }.forEach { journal.delete(it.id) }
             store.saveBlock(Block(d.id, d.day, d.tsStart, d.tsEnd, d.entries.filter { it.kind != EntryKind.AMBIENT }.map { it.id }, hash, category, 0.0,
-                "Conversa de ${Categories.LABELS[category] ?: category} removida (configuração de privacidade).", now))
+                "Đã xóa cuộc trò chuyện ${Categories.LABELS[category] ?: category} (cài đặt quyền riêng tư).", now))
             return Analysis(emptyList(), emptyList(), emptyList())
         }
         store.saveBlock(Block(d.id, d.day, d.tsStart, d.tsEnd, d.entries.map { it.id }, hash, category, relevance, summary, now))

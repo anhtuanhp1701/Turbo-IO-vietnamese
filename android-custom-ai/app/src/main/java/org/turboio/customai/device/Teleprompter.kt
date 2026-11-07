@@ -54,11 +54,11 @@ class Teleprompter(
     private val readyGraceMs: Long = 5_000,
 ) : BusinessListener {
     enum class Phase(val label: String) {
-        IDLE("parado"), PREPARING("preparando"), TRANSFERRING("enviando roteiro"), READY("pronto"), CONTROLLING("aguardando óculos"),
-        RUNNING("rolando"), PAUSED("pausado"), CLOSING("saindo"), ERROR("erro")
+        IDLE("đã dừng"), PREPARING("đang chuẩn bị"), TRANSFERRING("đang gửi kịch bản"), READY("sẵn sàng"), CONTROLLING("đang chờ kính"),
+        RUNNING("đang cuộn"), PAUSED("tạm dừng"), CLOSING("đang thoát"), ERROR("lỗi")
     }
 
-    data class State(val phase: Phase = Phase.IDLE, val note: String = "Cole o roteiro e envie aos óculos",
+    data class State(val phase: Phase = Phase.IDLE, val note: String = "Dán kịch bản rồi gửi lên kính",
                      val progress: Int = 0, val offset: Int = 0, val speed: Int = 120, val look: Look = Look())
 
     /**
@@ -120,27 +120,27 @@ class Teleprompter(
         .put("speed", speed).put("gear", s.look.gear).put("depth", s.look.depth).put("size", s.look.size).put("width", s.look.width).put("leading", s.look.leading)
 
     private suspend fun prepareHere(text: String, speed: Int, look: Look): String? {
-        if (active) return "Já existe uma sessão; saia dela primeiro"
-        if (!port.isReady) return "Conecte os óculos"
+        if (active) return "Đang có một phiên; hãy thoát phiên đó trước"
+        if (!port.isReady) return "Hãy kết nối kính"
         busy()?.let { return it }
-        if (speed !in SPEEDS || text.isBlank() || text.length > MAX_CHARS) return "Roteiro de até $MAX_CHARS caracteres; velocidade 80–260 palavras por minuto"
-        if (!look.valid) return "Ajustes de apresentação inválidos"
+        if (speed !in SPEEDS || text.isBlank() || text.length > MAX_CHARS) return "Kịch bản tối đa $MAX_CHARS ký tự; tốc độ 80–260 từ mỗi phút"
+        if (!look.valid) return "Cài đặt trình chiếu không hợp lệ"
         val bytes = text.toByteArray(Charsets.UTF_8)
-        if (bytes.size > FileTransfer.MAX_FILE) { bytes.fill(0); return "Roteiro grande demais (${bytes.size} bytes; máximo ${FileTransfer.MAX_FILE})" }
+        if (bytes.size > FileTransfer.MAX_FILE) { bytes.fill(0); return "Kịch bản quá lớn (${bytes.size} byte; tối đa ${FileTransfer.MAX_FILE})" }
         val e = ++epoch
         did = uuid(); total = bytes.size; checksum = checksum(bytes); fileStarted = false; businessReady = false
         runCatching { library?.save(did, text) }
         file = OutboundFile(did, bytes, md5(bytes)); bytes.fill(0)
         attempts.clear(); chosen = null
-        _state.value = State(Phase.PREPARING, "Pedindo aos óculos para abrir o teleprompter", 0, 0, speed, look)
-        deadline(prepareMs, "Os óculos não responderam ao preparo; saia e tente de novo")
+        _state.value = State(Phase.PREPARING, "Đang yêu cầu kính mở máy nhắc chữ", 0, 0, speed, look)
+        deadline(prepareMs, "Kính không phản hồi bước chuẩn bị; hãy thoát rồi thử lại")
         val error = lock.withLock {
             if (e != epoch) null
             else command(2, JSONObject().put("action", 1).put("did", did).put("total", total).settings(_state.value)
                 .put("pageOffset", 0).put("highLightOffset", 0))
         }
-        if (error != null) { if (e == epoch) fail("Preparo não enviado: $error"); return error }
-        if (e == epoch) note("Aguardando os óculos aceitarem o roteiro")
+        if (error != null) { if (e == epoch) fail("Chưa gửi được bước chuẩn bị: $error"); return error }
+        if (e == epoch) note("Đang chờ kính nhận kịch bản")
         DiagnosticLog.i(TAG, "preparo enviado (${total} bytes, velocidade $speed)")
         return null
     }
@@ -191,12 +191,12 @@ class Teleprompter(
                 did = id; total = bytes.size; checksum = checksum(bytes); fileStarted = true; businessReady = false
                 file = OutboundFile(did, bytes, md5(bytes)); bytes.fill(0)
                 attempts.clear(); chosen = null
-                _state.value = State(Phase.TRANSFERRING, "Roteiro escolhido nos óculos; enviando", 0, 0, speed, look)
+                _state.value = State(Phase.TRANSFERRING, "Kính đã chọn kịch bản; đang gửi", 0, 0, speed, look)
                 DiagnosticLog.i(TAG, "roteiro escolhido no menu dos óculos ($total bytes)")
-                deadline(transferMs, "Os óculos não confirmaram o roteiro em 2 minutos; saia e tente de novo")
+                deadline(transferMs, "Kính không xác nhận kịch bản trong 2 phút; hãy thoát rồi thử lại")
                 val error = command(2, JSONObject().put("action", 2).put("did", did).put("code", 1).settings(_state.value)
                     .put("pageOffset", 0).put("highLightOffset", 0))
-                if (error != null) { fail("Resposta aos óculos não enviada: $error"); return@withLock }
+                if (error != null) { fail("Chưa gửi được phản hồi cho kính: $error"); return@withLock }
                 announce(0, e)
             }
         }
@@ -204,11 +204,11 @@ class Teleprompter(
 
     private fun receive(business: Int, payload: ByteArray?, envelope: Envelope?) {
         if (!active) return
-        if (queued >= 16) { fail("Fila de mensagens do teleprompter cheia; saia desta sessão"); return }
+        if (queued >= 16) { fail("Hàng đợi tin nhắn của máy nhắc chữ đã đầy; hãy thoát phiên này"); return }
         val e = epoch; queued++
         scope.launch {
             try { lock.withLock { if (e == epoch) handle(business, payload, envelope, e) } }
-            catch (x: Exception) { if (e == epoch) fail("Falha no envio ou na resposta dos óculos (${x.message ?: x.javaClass.simpleName})") }
+            catch (x: Exception) { if (e == epoch) fail("Lỗi khi gửi hoặc khi kính phản hồi (${x.message ?: x.javaClass.simpleName})") }
             finally { queued--; payload?.fill(0) }
         }
     }
@@ -242,7 +242,7 @@ class Teleprompter(
                 lock.withLock { if (e == epoch && !businessReady) { DiagnosticLog.i(TAG, "sem código 7 dos óculos; roteiro tratado como pronto"); businessReady = true; ready() } }
             }
             val progress = if (total == 0) 0 else f.sentBytes * 100 / total
-            update { it.copy(progress = progress, note = if (f.complete) "Roteiro recebido pelos óculos; aguardando o teleprompter" else "Enviando roteiro: $progress%") }
+            update { it.copy(progress = progress, note = if (f.complete) "Kính đã nhận kịch bản; đang chờ máy nhắc chữ" else "Đang gửi kịch bản: $progress%") }
             ready()
             return
         }
@@ -251,38 +251,38 @@ class Teleprompter(
         val type = envelope!!.type; val action = j.optInt("action"); val code = j.optInt("code", -1)
         if (type == 6 && (action == 1 || (action == 2 && code == 1))) {
             if (action == 1) command(6, JSONObject().put("did", did).put("action", 2).put("code", 1))
-            if (e == epoch) clear("Teleprompter encerrado; o roteiro continua no celular")
+            if (e == epoch) clear("Đã đóng máy nhắc chữ; kịch bản vẫn còn trên điện thoại")
             return
         }
         if (type == 6 && action == 2) {
             // Seen on 1.0.5.5: code 3 about 30 s after a prepare whose file never arrived.
-            if (e == epoch) clear("Os óculos encerraram o teleprompter (código $code)" + if (chosen == null && fileStarted) "; não responderam a nenhuma forma de envio do arquivo" else "")
+            if (e == epoch) clear("Kính đã đóng máy nhắc chữ (mã $code)" + if (chosen == null && fileStarted) "; kính không phản hồi cách gửi tệp nào" else "")
             return
         }
         if (phase == Phase.ERROR || phase == Phase.CLOSING) return
         if (type == 2 && action == 2) {
             if (code != 1 && code != 7) throw IllegalStateException(refusal(code))
-            if (!fileStarted && code != 1) throw IllegalStateException("conclusão antes do arquivo")
+            if (!fileStarted && code != 1) throw IllegalStateException("hoàn tất trước khi có tệp")
             if (!fileStarted) {
-                if (file == null) throw IllegalStateException("arquivo indisponível")
+                if (file == null) throw IllegalStateException("tệp không khả dụng")
                 fileStarted = true
                 update { it.copy(phase = Phase.TRANSFERRING) }
-                deadline(transferMs, "Os óculos não confirmaram o roteiro em 2 minutos; saia e tente de novo")
+                deadline(transferMs, "Kính không xác nhận kịch bản trong 2 phút; hãy thoát rồi thử lại")
                 announce(0, e)
             } else if (code == 7) { businessReady = true; ready() }
         }
         if (type in setOf(3, 4, 5, 7) && action == 2 && phase == Phase.CONTROLLING && type == pendingControl) {
-            if (code != 1) throw IllegalStateException("comando recusado: ${refusal(code)}")
+            if (code != 1) throw IllegalStateException("lệnh bị từ chối: ${refusal(code)}")
             timer?.cancel(); timer = null
             val next = when (type) { 3, 5 -> Phase.RUNNING; 4 -> Phase.PAUSED; else -> beforeControl }
             pendingControl = 0
-            update { it.copy(phase = next, note = when (next) { Phase.RUNNING -> "Rolando nos óculos"; Phase.PAUSED -> "Pausado"; else -> "Velocidade alterada" }) }
+            update { it.copy(phase = next, note = when (next) { Phase.RUNNING -> "Đang cuộn trên kính"; Phase.PAUSED -> "Đã tạm dừng"; else -> "Đã đổi tốc độ" }) }
         }
         if (type == 3 && action == 1) {
             // Started on the glasses (touchpad / menu): answer like the official app and follow.
             command(3, JSONObject().put("action", 2).put("did", did).put("code", 1).settings(_state.value).put("pageOffset", 0).put("highLightOffset", 0))
             timer?.cancel(); timer = null; pendingControl = 0
-            update { it.copy(phase = Phase.RUNNING, note = "Iniciado nos óculos") }
+            update { it.copy(phase = Phase.RUNNING, note = "Đã bắt đầu trên kính") }
             return
         }
         if (type in setOf(4, 5, 7, 8) && action == 1) {
@@ -292,7 +292,7 @@ class Teleprompter(
             if (type == 5) update { it.copy(phase = Phase.RUNNING) }
             if (type == 7) j.optInt("speed", -1).takeIf { it in SPEEDS }?.let { s -> update { it.copy(speed = s) } }
             command(type, JSONObject().put("did", did).put("action", 2).put("code", 1))
-            if (e == epoch && type != 8) note("Alterado nos óculos: ${_state.value.phase.label}")
+            if (e == epoch && type != 8) note("Đã thay đổi trên kính: ${_state.value.phase.label}")
         }
     }
 
@@ -307,8 +307,8 @@ class Teleprompter(
         val error = sendFile(info, route.business); info.fill(0)
         DiagnosticLog.i(TAG, if (error == null) "arquivo anunciado pela rota ${route.label}" else "anúncio pela rota ${route.label} falhou: $error")
         if (error != null && index == 0) throw IllegalStateException(error)
-        if (e == epoch) note(if (index == 0) "Informações do arquivo enviadas; os óculos vão pedir o roteiro em partes"
-            else "Sem resposta dos óculos; tentando de outra forma (${index + 1} de ${ROUTES.size})")
+        if (e == epoch) note(if (index == 0) "Đã gửi thông tin tệp; kính sẽ xin kịch bản theo từng phần"
+            else "Kính không phản hồi; đang thử cách khác (${index + 1}/${ROUTES.size})")
         if (index == ROUTES.lastIndex) return
         scope.launch {
             delay(retryInfoMs)
@@ -321,7 +321,7 @@ class Teleprompter(
         val s = _state.value
         if (s.phase == Phase.TRANSFERRING && businessReady && file?.complete == true) {
             timer?.cancel(); timer = null
-            update { it.copy(phase = Phase.READY, progress = 100, note = "Roteiro pronto nos óculos; toque em Iniciar") }
+            update { it.copy(phase = Phase.READY, progress = 100, note = "Kịch bản đã sẵn sàng trên kính; bấm Bắt đầu") }
             DiagnosticLog.i(TAG, "roteiro confirmado pelos óculos")
         }
     }
@@ -331,9 +331,9 @@ class Teleprompter(
 
     private suspend fun controlHere(type: Int, speed: Int): String? {
         val phase = _state.value.phase
-        if (type !in setOf(3, 4, 5, 7) || phase !in setOf(Phase.READY, Phase.RUNNING, Phase.PAUSED)) return "Aguarde o roteiro ficar pronto ou a resposta anterior"
-        if ((type == 3 && phase != Phase.READY) || (type == 4 && phase != Phase.RUNNING) || (type == 5 && phase != Phase.PAUSED)) return "Não disponível agora (${phase.label})"
-        if (speed !in SPEEDS) return "Velocidade 80–260"
+        if (type !in setOf(3, 4, 5, 7) || phase !in setOf(Phase.READY, Phase.RUNNING, Phase.PAUSED)) return "Hãy chờ kịch bản sẵn sàng hoặc phản hồi trước đó"
+        if ((type == 3 && phase != Phase.READY) || (type == 4 && phase != Phase.RUNNING) || (type == 5 && phase != Phase.PAUSED)) return "Hiện không dùng được (${phase.label})"
+        if (speed !in SPEEDS) return "Tốc độ 80–260"
         val body = JSONObject().put("did", did).put("action", 1)
         when (type) {
             3 -> body.put("total", total).settings(_state.value).put("checksum", checksum).put("pageOffset", 0).put("highLightOffset", 0)
@@ -341,11 +341,11 @@ class Teleprompter(
             7 -> { body.settings(_state.value, speed); update { it.copy(speed = speed) } }
         }
         beforeControl = phase; pendingControl = type
-        update { it.copy(phase = Phase.CONTROLLING, note = "Aguardando os óculos confirmarem") }
+        update { it.copy(phase = Phase.CONTROLLING, note = "Đang chờ kính xác nhận") }
         val e = epoch
-        deadline(controlMs, "Os óculos não confirmaram o comando; saia desta sessão")
+        deadline(controlMs, "Kính không xác nhận lệnh; hãy thoát phiên này")
         val error = lock.withLock { if (e == epoch) command(type, body) else null }
-        if (error != null && e == epoch) fail("Comando não enviado: $error")
+        if (error != null && e == epoch) fail("Chưa gửi được lệnh: $error")
         return error
     }
 
@@ -357,9 +357,9 @@ class Teleprompter(
         val id = did; val started = fileStarted; val e = ++epoch
         val announced = attempts.filter { chosen == null || it.first == chosen }.map { it.first.business to it.second.uuid }
         closeFiles()
-        update { it.copy(phase = Phase.CLOSING, note = "Saindo; aguardando os óculos") }
+        update { it.copy(phase = Phase.CLOSING, note = "Đang thoát; chờ kính") }
         timer?.cancel()
-        timer = scope.launch { delay(controlMs); if (e == epoch && active) clear("Saída não confirmada pelos óculos; se o teleprompter continuar aberto, saia pelo toque nos óculos") }
+        timer = scope.launch { delay(controlMs); if (e == epoch && active) clear("Kính không xác nhận thoát; nếu máy nhắc chữ vẫn mở, hãy thoát bằng thao tác chạm trên kính") }
         lock.withLock {
             if (e != epoch) return@withLock
             if (started) for ((business, uuid) in announced) {
@@ -370,7 +370,7 @@ class Teleprompter(
         }
     }
 
-    fun disconnected() { if (active) clear("Conexão perdida; o teleprompter não é retomado sozinho") }
+    fun disconnected() { if (active) clear("Mất kết nối; máy nhắc chữ không tự tiếp tục") }
 
     private fun fail(text: String) {
         epoch++; timer?.cancel(); timer = null; closeFiles()
@@ -410,16 +410,16 @@ class Teleprompter(
 
         /** Prepare/control refusal codes of the official app 1.0.7 (4 cancelled, 6 checksum, 8–10 conflict, 18 folded, 20+ fatal). */
         fun refusal(code: Int): String = when (code) {
-            4 -> "transferência cancelada (código 4)"
-            6 -> "roteiro diferente do anunciado (código 6)"
-            8, 9, 10 -> "outro app está usando os óculos (código $code)"
-            18 -> "óculos dobrados; abra as hastes (código 18)"
-            in 20..28 -> "erro nos óculos (código $code)"
-            else -> "preparo recusado (código $code)"
+            4 -> "đã hủy truyền tệp (mã 4)"
+            6 -> "kịch bản khác với thông báo (mã 6)"
+            8, 9, 10 -> "một app khác đang dùng kính (mã $code)"
+            18 -> "kính đang gập; hãy mở gọng (mã 18)"
+            in 20..28 -> "lỗi trên kính (mã $code)"
+            else -> "bước chuẩn bị bị từ chối (mã $code)"
         }
         val ROUTES = listOf(
             FileRoute(Business.SMALL_FILE, true, "17 · task"),
-            FileRoute(Business.SMALL_FILE, false, "17 · sessão"),
+            FileRoute(Business.SMALL_FILE, false, "17 · phiên"),
             FileRoute(Business.FILE, true, "18 · task"),
         )
         const val MAX_CHARS = 12_000

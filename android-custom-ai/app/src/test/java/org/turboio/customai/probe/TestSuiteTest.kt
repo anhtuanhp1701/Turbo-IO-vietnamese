@@ -31,7 +31,7 @@ class TestSuiteTest {
         port.glasses(15, 21, """{"cmd":"life_log_switch_result","payload":{"value":0}}"""); runCurrent()
         port.glasses(13, 161); runCurrent()
         advanceTimeBy(15_000); runCurrent()
-        assertEquals("SILÊNCIO total", suite.state.value.current!!.cue(probe.state.value.audioSeconds))
+        assertEquals("IM LẶNG hoàn toàn", suite.state.value.current!!.cue(probe.state.value.audioSeconds))
         advanceTimeBy(30_000); runCurrent()
         port.glasses(15, 21, """{"cmd":"life_log_switch_result","payload":{"value":0}}"""); runCurrent()
         advanceTimeBy(2000); runCurrent()

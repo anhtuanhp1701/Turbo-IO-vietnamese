@@ -19,11 +19,14 @@ sealed class JournalIntent {
 }
 
 object JournalIntents {
-    private val NOT_NAMES = setOf("isso", "aquilo", "ele", "ela", "eles", "elas", "voce", "mim", "tudo", "nada", "hoje", "ontem")
+    private val NOT_NAMES = setOf("isso", "aquilo", "ele", "ela", "eles", "elas", "voce", "mim", "tudo", "nada", "hoje", "ontem", "hôm nay", "hôm qua", "anh ấy", "chị ấy", "họ", "tôi")
     private fun offset(text: String): Int? = when {
         Regex("\\banteontem\\b").containsMatchIn(text) -> -2
         Regex("\\bontem\\b").containsMatchIn(text) -> -1
         Regex("\\bhoje\\b").containsMatchIn(text) -> 0
+        Regex("\\bhom kia\\b").containsMatchIn(text) -> -2
+        Regex("\\bhom qua\\b").containsMatchIn(text) -> -1
+        Regex("\\bhom nay\\b").containsMatchIn(text) -> 0
         else -> null
     }
 
@@ -33,23 +36,31 @@ object JournalIntents {
         Regex("\\b(o que|oque) aconteceu (no meu dia|comigo)( hoje| ontem)?$"),
         Regex("\\bcomo foi (o )?(meu )?(dia|hoje|ontem)\\b"),
         Regex("\\binsights? (do|de) (meu )?(dia|hoje|ontem)\\b"),
+        // Vietnamese (accents removed by searchNormalize)
+        Regex("\\btom tat (ngay|hom nay|hom qua|hom kia|mot ngay)( (hom nay|hom qua|cua toi))?\\b"),
+        Regex("\\b(hom nay|hom qua) toi (da )?lam (gi|nhung gi)\\b"),
+        Regex("\\bngay (hom nay|hom qua|cua toi) (the nao|ra sao)\\b"),
     )
     private val TASKS = listOf(
         Regex("\\bminhas (tarefas|pendencias)\\b"),
         Regex("\\b(tarefas|pendencias) (de|do|da) (hoje|ontem|anteontem|dia)\\b"),
         Regex("\\b(o que|oque) (eu )?(tenho|ficou) (de )?pendente\\b"),
+        Regex("\\bviec (can lam )?(cua )?(hom nay|hom qua|hom kia)\\b"),
     )
     private val SEARCH = listOf(
         Regex("\\b(o que|oque) (eu )?(falei|disse|conversei|comentei|perguntei|ouvi)( la| ali)? sobre (.+)$"),
         Regex("\\b(procure|procura|busque|busca|pesquise)( no| em)?( meu)? diario( por| sobre)? (.+)$"),
         Regex("\\bquando (eu )?(falei|disse|conversei) sobre (.+)$"),
+        Regex("\\b(toi|minh) (da )?(noi|nhac|hoi|nghe|ban) (gi|nhung gi|nhung dieu gi) ve (.+)$"),
+        Regex("\\b(tim|tra) (trong )?nhat ky (ve |cho )?(.+)$"),
+        Regex("\\bkhi nao (toi|minh) (da )?(noi|nhac) ve (.+)$"),
     )
 
-    private val ARTICLE = Regex("^(o|a|os|as|do|da|dos|das|com|meu|minha|seu|sua|dona|seu|dr|dra|doutor|doutora)\\s+")
+    private val ARTICLE = Regex("^(o|a|os|as|do|da|dos|das|com|meu|minha|seu|sua|dona|seu|dr|dra|doutor|doutora|anh|chi|em|co|chu|bac|ong|ba|ban|thay)\\s+")
     private fun name(raw: String): String? {
         var n = raw.trim()
         repeat(3) { n = n.replace(ARTICLE, "") }
-        n = n.replace(Regex("\\b(hoje|ontem|anteontem|essa semana|esta semana|semana passada)\\b"), " ").replace(Regex("\\s+"), " ").trim()
+        n = n.replace(Regex("\\b(hoje|ontem|anteontem|essa semana|esta semana|semana passada|hom nay|hom qua|tuan nay|tuan truoc)\\b"), " ").replace(Regex("\\s+"), " ").trim()
         return n.takeIf { it.length in 2..40 && it.split(" ").size <= 3 }
     }
 
@@ -57,21 +68,28 @@ object JournalIntents {
         Regex("\\b(o que|oque) (eu )?(tenho|ficou|esta) (de )?pendente com (.+)$"),
         Regex("\\b(pendencias|tarefas|compromissos) com (.+)$"),
         Regex("\\b(o que|oque) (eu )?(combinei|fiquei de fazer|prometi) (com|para|pra|pro) (.+)$"),
+        Regex("\\b(toi )?(con |co )?viec (gi )?(voi|cho) (.+)$"),
+        Regex("\\b(toi )?(da )?(hen|hua|hua hen) (gi )?(voi|cho) (.+)$"),
     )
     private val PERSON = listOf(
         Regex("\\b(o que|oque) (eu )?(conversei|falei|combinei|tenho|sei) com (?<n>.+)$"),
         Regex("\\b(ultima|ultimas) (conversa|conversas) com (?<n>.+)$"),
+        Regex("\\b(toi|minh) (da )?(noi chuyen|trao doi|noi|ban) (gi )?voi (?<n>.+)$"),
     )
     private val WEEKLY = listOf(
         Regex("\\b(resumo|revisao|balanco) (da|de|desta|dessa)( minha)? semana\\b"),
         Regex("\\brevisao semanal\\b"),
         Regex("\\bcomo foi (a |minha |esta |essa )?semana\\b"),
+        Regex("\\b(tong ket|tom tat|nhin lai) tuan\\b"),
+        Regex("\\btuan (nay|qua) (cua toi )?(the nao|ra sao)\\b"),
     )
     private val PENDING = listOf(
         Regex("\\b(quais|quais sao) (as )?minhas pendencias\\b"),
         Regex("\\b(o que|oque) (eu )?(tenho|ficou) (de )?pendente$"),
         Regex("\\bminhas pendencias\\b"),
         Regex("\\b(o que|oque) (eu )?tenho (pra|para) (fazer|hoje)\\b"),
+        Regex("\\b(nhung |cac |danh sach )?viec (cua toi|can lam|dang cho|chua xong|con lai)\\b"),
+        Regex("\\b(toi|minh) (con |co )?(viec gi|nhung viec gi|phai lam gi)\\b"),
     )
 
     private val REMIND = listOf(
@@ -79,16 +97,23 @@ object JournalIntents {
         Regex("^(por favor )?anota( ai| pra mim| para mim)?( que)? (?<t>.+)$"),
         Regex("\\b(adiciona|adicione|cria|crie|coloca|coloque)( uma)? (tarefa|pendencia|lembrete)( de| para| pra|:)? (?<t>.+)$"),
         Regex("\\bnao (me )?deix[ae] esquecer (de |que )?(?<t>.+)$"),
+        Regex("^(hay |nho )?nhac (toi|minh|em|anh|chi)( la| rang| nho)? (?<t>.+)$"),
+        Regex("^(hay )?ghi (lai|chu|nho)( giup toi| cho toi)?( la| rang)? (?<t>.+)$"),
+        Regex("\\bdung (de )?(toi|minh) quen (?<t>.+)$"),
+        Regex("^(hay )?them (mot )?(viec|loi nhac)( la|:)? (?<t>.+)$"),
     )
-    private const val NUM = "\\d+|um|uma|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez"
+    private const val NUM = "\\d+|um|uma|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|mot|hai|ba|bon|nam|sau|bay|tam|chin|muoi"
     private val COMPLETE_EXPLICIT = listOf(
         Regex("\\b(marca|marque|marcar)( a| o)?( pendencia| tarefa| item)?( numero)? (?<t>$NUM)( como)? (feita|feito|concluida|concluido|pronta|pronto)\\b"),
         Regex("\\b(marca|marque|marcar)( como)? (feita|feito|concluida|concluido|pronta|pronto)( a| o)?( pendencia| tarefa)? (?<t>.+)$"),
         Regex("\\b(marca|marque|marcar) (?<t>.+) como (feita|feito|concluida|concluido|pronta|pronto)$"),
         Regex("\\b(conclui|concluir|finaliza|finalizar)( a| o)? (pendencia|tarefa) (?<t>.+)$"),
+        Regex("\\bdanh dau (viec )?(so )?(?<t>$NUM)( la)? (xong|da xong|hoan thanh)\\b"),
+        Regex("\\bdanh dau (xong|hoan thanh) (viec )?(?<t>.+)$"),
     )
     private val COMPLETE_SOFT = listOf(
         Regex("^ja (fiz|terminei|mandei|enviei|liguei|paguei|comprei|resolvi|respondi|entreguei|marquei|agendei) (?<t>.+)$"),
+        Regex("^(?!.*\\bgi\\b)(toi )?da (lam xong|lam|gui|goi|tra|mua|nop|dat|xong|hoan thanh) (?<t>.+)$"),
     )
 
     fun detect(raw: String): JournalIntent? {
@@ -110,7 +135,7 @@ object JournalIntents {
             val m = r.find(text) ?: continue
             var term = m.groupValues.last().trim()
             val day = offset(" $term ")
-            term = term.replace(Regex("\\b(hoje|ontem|anteontem|no diario|de manha|a tarde|a noite)\\b"), " ").replace(Regex("\\s+"), " ").trim()
+            term = term.replace(Regex("\\b(hoje|ontem|anteontem|no diario|de manha|a tarde|a noite|hom nay|hom qua|trong nhat ky)\\b"), " ").replace(Regex("\\s+"), " ").trim()
             if (term.length >= 2) return JournalIntent.Search(term, day ?: offset(text))
         }
         for (r in PERSON) r.find(text)?.let { m -> name(m.groups["n"]?.value ?: "")?.takeIf { it !in NOT_NAMES }?.let { return JournalIntent.Person(it) } }

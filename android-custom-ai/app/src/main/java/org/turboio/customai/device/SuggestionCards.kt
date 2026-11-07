@@ -18,7 +18,7 @@ import org.turboio.customai.protocol.Json
  * An unanswered card is removed after the timeout.
  */
 class SuggestionCards(private val port: GlassesPort, private val random: Randomness) {
-    enum class Answer(val label: String) { YES("aceno (sim)"), NO("balanço (não)"), TIMEOUT("sem resposta"), FAILED("não enviado") }
+    enum class Answer(val label: String) { YES("gật đầu (có)"), NO("lắc đầu (không)"), TIMEOUT("không có phản hồi"), FAILED("chưa gửi") }
 
     private val lock = Mutex()
     @Volatile private var pending: Pair<String, CompletableDeferred<Answer>>? = null

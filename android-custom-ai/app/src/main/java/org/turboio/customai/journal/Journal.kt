@@ -18,12 +18,12 @@ enum class EntryKind(val id: String) { INTERACTION("interaction"), AMBIENT("ambi
     companion object { fun of(id: String?) = entries.firstOrNull { it.id == id } ?: NOTE } }
 
 enum class EntrySource(val id: String, val label: String) {
-    VOICE_GLASSES("voice_glasses", "voz (óculos)"),
-    VOICE_PHONE("voice_phone", "voz (telefone)"),
+    VOICE_GLASSES("voice_glasses", "giọng nói (kính)"),
+    VOICE_PHONE("voice_phone", "giọng nói (điện thoại)"),
     TEXT("text_test", "texto"),
-    LIFELOG("lifelog", "ambiente (óculos)"),
-    RECORDING14("recording14", "gravação (óculos)"),
-    PHONE_MIC("phone_mic", "ambiente (telefone)");
+    LIFELOG("lifelog", "môi trường (kính)"),
+    RECORDING14("recording14", "ghi âm (kính)"),
+    PHONE_MIC("phone_mic", "môi trường (điện thoại)");
     companion object { fun of(id: String?) = entries.firstOrNull { it.id == id } ?: TEXT }
 }
 
@@ -56,7 +56,7 @@ object Days {
 
 /** Lowercase, accent-free form used for the FTS column and queries (device-independent search). */
 fun searchNormalize(text: String): String =
-    Normalizer.normalize(text.lowercase(), Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"), "")
+    Normalizer.normalize(text.lowercase(), Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"), "").replace('đ', 'd')
 
 /**
  * The journal: interactions with the AI (option 2) and ambient transcripts (option 3) in one timeline.
@@ -80,7 +80,7 @@ class JournalStore(private val db: SqlDb) {
     }
 
     fun add(entry: Entry): Long = db.transaction {
-        require(entry.text.isNotBlank() || entry.answer.isNotBlank()) { "entrada vazia" }
+        require(entry.text.isNotBlank() || entry.answer.isNotBlank()) { "mục trống" }
         val id = db.insert(
             "INSERT INTO entries(day, ts_start, ts_end, kind, source, text, answer, provider, model, latency_ms, meta_json) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
             entry.day, entry.tsStart, entry.tsEnd, entry.kind.id, entry.source.id, entry.text.take(100_000), entry.answer.take(100_000),
@@ -183,13 +183,13 @@ class JournalStore(private val db: SqlDb) {
 
 object JournalExport {
     fun markdown(day: String, entries: List<Entry>, insight: StoredInsight?): String = buildString {
-        append("# Diário Turbo IO — ").append(Days.label(day)).append("\n\n")
-        if (insight != null) append("## Insights\n\n").append(insight.text.trim()).append("\n\n")
-        append("## Linha do tempo\n\n")
+        append("# Nhật ký Turbo IO — ").append(Days.label(day)).append("\n\n")
+        if (insight != null) append("## Phân tích\n\n").append(insight.text.trim()).append("\n\n")
+        append("## Dòng thời gian\n\n")
         for (e in entries) {
             append("### ").append(Days.time(e.tsStart)).append(" · ").append(e.source.label).append("\n\n")
             if (e.kind == EntryKind.INTERACTION) {
-                append("**Você:** ").append(e.text.trim()).append("\n\n")
+                append("**Tôi:** ").append(e.text.trim()).append("\n\n")
                 if (e.answer.isNotBlank()) append("**IA:** ").append(e.answer.trim()).append("\n\n")
             } else append(e.text.trim()).append("\n\n")
         }

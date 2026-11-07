@@ -39,7 +39,7 @@ object Palette {
     const val WARNING = 0xFFFBBF24.toInt()
 }
 
-/** A shortcut tile: icon, name and a short state ("Ligado", "Gravando"…). */
+/** A shortcut tile: icon, name and a short state ("Bật", "Đang ghi"…). */
 data class Tile(val icon: Int, val title: String, val status: String, val on: Boolean, val onClick: () -> Unit)
 
 /** Tiny programmatic layout helpers so each screen stays a single readable Kotlin file. */

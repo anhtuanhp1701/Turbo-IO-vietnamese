@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Turbo IO IA</string>
-    <string name="tab_home">Início</string>
-    <string name="tab_glasses">Óculos</string>
-    <string name="tab_memory">Memória</string>
-    <string name="tab_ai">IA</string>
-    <string name="tab_more">Mais</string>
+    <string name="app_name">Turbo IO AI</string>
+    <string name="tab_home">Trang chủ</string>
+    <string name="tab_glasses">Kính</string>
+    <string name="tab_memory">Bộ nhớ</string>
+    <string name="tab_ai">AI</string>
+    <string name="tab_more">Thêm</string>
 </resources>

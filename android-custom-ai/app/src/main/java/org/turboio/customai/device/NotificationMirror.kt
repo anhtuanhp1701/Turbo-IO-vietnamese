@@ -30,17 +30,17 @@ class MirrorPolicy(
 
     fun decide(n: Incoming): Action {
         val now = clock()
-        if (n.pkg == ownPackage) return Action.Skip("próprio app")
+        if (n.pkg == ownPackage) return Action.Skip("chính app này")
         if (n.pkg == MAPS && navOn() && n.ongoing) return navigation(n, now)
-        if (n.pkg !in allowed()) return Action.Skip("app não escolhido")
-        if (n.groupSummary) return Action.Skip("resumo de grupo")
-        if (n.ongoing || n.category in SKIPPED) return Action.Skip("contínua/serviço")
+        if (n.pkg !in allowed()) return Action.Skip("app không được chọn")
+        if (n.groupSummary) return Action.Skip("tóm tắt nhóm")
+        if (n.ongoing || n.category in SKIPPED) return Action.Skip("liên tục/dịch vụ")
         val title = n.title.trim().take(60); val text = n.text.trim().replace(Regex("\\s+"), " ").take(300)
         if (title.isEmpty() && text.isEmpty()) return Action.Skip("vazia")
         val key = "${n.pkg}|$title|$text"
         recent.entries.removeAll { now - it.value > dedupeMs }
         if (recent.containsKey(key)) return Action.Skip("repetida")
-        if (now - lastCard < minGapMs) return Action.Skip("muitas seguidas")
+        if (now - lastCard < minGapMs) return Action.Skip("quá nhiều liên tiếp")
         recent[key] = now; lastCard = now
         return Action.Card(n.appName, title.ifEmpty { n.appName }, text.ifEmpty { title })
     }
@@ -49,9 +49,9 @@ class MirrorPolicy(
     private fun navigation(n: Incoming, now: Long): Action {
         val title = n.title.trim(); val street = n.text.trim()
         val line = listOf(title, street).filter { it.isNotEmpty() }.joinToString(" · ").take(90)
-        if (line.isEmpty() || line == lastNav) return Action.Skip("sem mudança")
+        if (line.isEmpty() || line == lastNav) return Action.Skip("không thay đổi")
         // New street/maneuver: show now; same street, only the distance changed: at most every navGapMs.
-        if (street == lastStreet && now - lastNavAt < navGapMs) return Action.Skip("distância (aguardando)")
+        if (street == lastStreet && now - lastNavAt < navGapMs) return Action.Skip("khoảng cách (đang chờ)")
         lastNav = line; lastNavAt = now; lastStreet = street
         return Action.Nav(line)
     }
@@ -60,8 +60,8 @@ class MirrorPolicy(
         const val MAPS = "com.google.android.apps.maps"
         private val SKIPPED = setOf("progress", "service", "transport", "sys", "status")
         enum class Category(val label: String, val preselect: Boolean) {
-            MESSAGES("Mensagens", true), EMAIL("E-mail", true), BANKS("Bancos e pagamentos", true),
-            CALENDAR("Agenda", false), WORK("Trabalho", false), OTHER("Outros", false)
+            MESSAGES("Tin nhắn", true), EMAIL("E-mail", true), BANKS("Ngân hàng và thanh toán", true),
+            CALENDAR("Lịch", false), WORK("Công việc", false), OTHER("Khác", false)
         }
 
         data class Known(val pkg: String, val name: String, val category: Category)
@@ -73,8 +73,8 @@ class MirrorPolicy(
         val CATALOG = listOf(
             Known("com.whatsapp", "WhatsApp", Category.MESSAGES), Known("com.whatsapp.w4b", "WhatsApp Business", Category.MESSAGES),
             Known("org.telegram.messenger", "Telegram", Category.MESSAGES), Known("org.thoughtcrime.securesms", "Signal", Category.MESSAGES),
-            Known("com.google.android.apps.messaging", "Mensagens (Google)", Category.MESSAGES),
-            Known("com.samsung.android.messaging", "Mensagens (Samsung)", Category.MESSAGES),
+            Known("com.google.android.apps.messaging", "Tin nhắn (Google)", Category.MESSAGES),
+            Known("com.samsung.android.messaging", "Tin nhắn (Samsung)", Category.MESSAGES),
             Known("com.facebook.orca", "Messenger", Category.MESSAGES), Known("com.instagram.android", "Instagram", Category.MESSAGES),
             Known("com.google.android.gm", "Gmail", Category.EMAIL), Known("com.microsoft.office.outlook", "Outlook", Category.EMAIL),
             Known("com.samsung.android.email.provider", "E-mail (Samsung)", Category.EMAIL),
@@ -85,7 +85,7 @@ class MirrorPolicy(
             Known("com.c6bank.app", "C6 Bank", Category.BANKS), Known("com.picpay", "PicPay", Category.BANKS),
             Known("com.mercadopago.wallet", "Mercado Pago", Category.BANKS), Known("br.com.uol.ps.myaccount", "PagBank", Category.BANKS),
             Known("br.com.neon", "Neon", Category.BANKS),
-            Known("com.google.android.calendar", "Google Agenda", Category.CALENDAR), Known("com.samsung.android.calendar", "Agenda (Samsung)", Category.CALENDAR),
+            Known("com.google.android.calendar", "Google Lịch", Category.CALENDAR), Known("com.samsung.android.calendar", "Lịch (Samsung)", Category.CALENDAR),
             Known("com.microsoft.teams", "Teams", Category.WORK), Known("com.Slack", "Slack", Category.WORK),
             Known("com.linkedin.android", "LinkedIn", Category.WORK),
             Known("com.ubercab", "Uber", Category.OTHER), Known("com.taxis99", "99", Category.OTHER), Known("br.com.brainweb.ifood", "iFood", Category.OTHER),

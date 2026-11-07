@@ -57,7 +57,7 @@ object ProbeAnalysis {
         val audio = records.filter { (it.business to it.type) in audioTypes && it.binary.isNotEmpty() }
         val allFrames = audio.flatMap { r -> frames(r.binary).map { r to it } }
         report.put("audioRecords", audio.size).put("audioFrames", allFrames.size)
-        if (allFrames.isEmpty()) return Result(report.put("verdict", "sem áudio recebido"), ByteArray(0), 1)
+        if (allFrames.isEmpty()) return Result(report.put("verdict", "không nhận được âm thanh"), ByteArray(0), 1)
 
         val sizes = allFrames.groupingBy { it.second.size }.eachCount()
         report.put("frameSizes", JSONObject(sizes.mapKeys { it.key.toString() }))
@@ -140,12 +140,12 @@ object ProbeAnalysis {
             .put("meanBurstIntervalMs", if (starts.size > 1) (starts.last() - starts.first()) / (starts.size - 1) else 0)
             .put("meanFramesPerBurst", allFrames.size / bursts.size)
             .put("batchMs", batchMs)
-            .put("delivery", if (bursts.size > 1) "lotes a cada ~${(starts.last() - starts.first()) / (starts.size - 1) / 1000} s (cache)" else "contínua"))
+            .put("delivery", if (bursts.size > 1) "gửi theo đợt mỗi ~${(starts.last() - starts.first()) / (starts.size - 1) / 1000} giây (bộ nhớ đệm)" else "liên tục"))
         val delivery = report.getJSONObject("continuity").getString("delivery")
         val verdict = when {
-            failed > ok -> "áudio NÃO decodifica como Opus — formato diferente do esperado"
-            sizes.keys.all { it == FRAME } && ok > 0 -> "quadros Opus de 240 B decodificam (${if (stereo) "estéreo" else "mono"}, $typicalMs ms, entrega $delivery); ouça o WAV para confirmar a fala"
-            ok > 0 -> "Opus decodifica, mas os quadros não têm 240 B fixos"
+            failed > ok -> "âm thanh KHÔNG giải mã được dạng Opus — định dạng khác dự kiến"
+            sizes.keys.all { it == FRAME } && ok > 0 -> "khung Opus 240 B giải mã được (${if (stereo) "estéreo" else "mono"}, $typicalMs ms, gửi kiểu $delivery); hãy nghe tệp WAV để xác nhận giọng nói"
+            ok > 0 -> "Opus giải mã được nhưng khung không cố định 240 B"
             else -> "indeterminado"
         }
         return Result(report.put("verdict", verdict), wav.toByteArray(), channels)

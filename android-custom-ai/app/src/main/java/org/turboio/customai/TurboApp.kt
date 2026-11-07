@@ -128,9 +128,9 @@ class TurboApp : Application() {
         scripts = org.turboio.customai.device.ScriptLibrary(java.io.File(filesDir, "teleprompter"))
         teleprompter = org.turboio.customai.device.Teleprompter(session, scope, random, library = scripts, busy = {
             when {
-                voice.busy -> "O assistente de voz está em uso"
-                display.active -> "Há texto do app nas lentes; aguarde terminar"
-                probe.busy -> "Um teste de hardware está em andamento"
+                voice.busy -> "Trợ lý giọng nói đang được dùng"
+                display.active -> "Kính đang hiển thị chữ của app; hãy đợi xong"
+                probe.busy -> "Đang chạy bài kiểm tra phần cứng"
                 else -> null
             }
         })
@@ -152,7 +152,7 @@ class TurboApp : Application() {
             { settings.memorySettings().let { it.enabled && it.glassesTodo } })
         // The glasses LifeLog channel is shared: probes wait while the journal records from the glasses, and a
         // probe's OFF sequence clears the "start from the glasses menu" flag, so it is re-armed afterwards.
-        probe.blocker = { if (ambient.usesGlasses) "A gravação do diário pelos óculos está ativa" else null }
+        probe.blocker = { if (ambient.usesGlasses) "Đang ghi nhật ký bằng kính" else null }
         probe.addFinishedListener { if (settings.ambientSettings().glassesMenu) ambient.armGlassesMenu() }
         session.addBusinessListener { business, envelope ->
             if (business == org.turboio.customai.protocol.Business.LAUNCHER || business == org.turboio.customai.protocol.Business.AI_ASSISTANT) {
@@ -311,14 +311,14 @@ class TurboApp : Application() {
             heardText = m?.groupValues?.get(1)?.trim().orEmpty()
             raw = asked.copy(text = (if (m != null) asked.text.removeRange(m.range) else asked.text).trim())
             DiagnosticLog.i("VOZ", "Gemini direto: pergunta ${heardText.length} caracteres, resposta ${raw.text.length} em ${asked.latencyMs} ms")
-            if (heardText.isEmpty()) throw AiException("Não entendi. Tente novamente.")
+            if (heardText.isEmpty()) throw AiException("Không nghe rõ. Hãy thử lại.")
             // Journal and memory questions keep their local answers.
             journalAnswer(heardText, source)?.let { return heardText to asked.copy(text = it) }
         }
         val question = heardText
         // The assistant itself flags requests to remember something; the marker becomes an item and is never shown.
         val marker = if (tasks) TaskMarker.find(raw.text) else null
-        val result = if (marker == null) raw else raw.copy(text = marker.rest.ifBlank { "Anotado." })
+        val result = if (marker == null) raw else raw.copy(text = marker.rest.ifBlank { "Đã ghi lại." })
         if (marker != null) withContext(Dispatchers.IO) {
             runCatching { memory.itemFromMarker(marker.task, marker.due, question, started) }.getOrNull()?.let {
                 DiagnosticLog.i("MEMORIA", "pendência criada pela conversa com a IA")
@@ -366,25 +366,25 @@ class TurboApp : Application() {
             when (intent) {
                 is JournalIntent.Summary -> insights.day(Days.shift(today, intent.dayOffset.toLong())).insight.lens(400)
                 is JournalIntent.Tasks -> if (memoryOn) listPending(now, null) else insights.day(Days.shift(today, intent.dayOffset.toLong())).insight.tarefas
-                    .let { if (it.isEmpty()) "Nenhuma tarefa registrada." else "Tarefas: " + it.take(5).joinToString("; ") }
+                    .let { if (it.isEmpty()) "Chưa có việc nào được ghi." else "Việc: " + it.take(5).joinToString("; ") }
                 is JournalIntent.Pending -> listPending(now, intent.person)
                 is JournalIntent.Remind -> memory.quickItem(intent.text, now).let { item ->
                     org.turboio.customai.memory.Reminders.sync(this@TurboApp)
-                    "Anotado: " + memoryQueries.line(item, now)
+                    "Đã ghi: " + memoryQueries.line(item, now)
                 }
                 is JournalIntent.Complete -> when (val m = memoryQueries.match(intent.ref, lastListed)) {
                     is org.turboio.customai.memory.MemoryQueries.Match.One -> {
                         memoryStore.setStatus(m.item.id, org.turboio.customai.memory.ItemStatus.DONE, now, question.take(200))
-                        "Feito: " + m.item.text
+                        "Xong: " + m.item.text
                     }
                     is org.turboio.customai.memory.MemoryQueries.Match.Many -> {
                         lastListed = m.items.map { it.id }
-                        "Qual delas? " + m.items.mapIndexed { i, it -> "${i + 1}) ${it.text}" }.joinToString("; ") + ". Diga: marca a 1 como feita."
+                        "Việc nào? " + m.items.mapIndexed { i, it -> "${i + 1}) ${it.text}" }.joinToString("; ") + ". Hãy nói: đánh dấu số 1 là xong."
                     }
-                    org.turboio.customai.memory.MemoryQueries.Match.None -> if (intent.explicit) "Não achei essa pendência. Diga “minhas pendências” para ver a lista." else null
+                    org.turboio.customai.memory.MemoryQueries.Match.None -> if (intent.explicit) "Không tìm thấy việc đó. Nói “việc của tôi” để xem danh sách." else null
                 }
                 is JournalIntent.Person -> memoryQueries.personAnswer(intent.name, now)
-                is JournalIntent.Weekly -> weeklyReview()?.text?.let { DisplayText.clean(it).take(500) } ?: "Ainda não há conteúdo suficiente nesta semana."
+                is JournalIntent.Weekly -> weeklyReview()?.text?.let { DisplayText.clean(it).take(500) } ?: "Tuần này chưa có đủ nội dung."
                 is JournalIntent.Search -> if (memoryOn) memoryQueries.search(question, now)
                     else insights.ask(question, intent.term, intent.dayOffset?.let { Days.shift(today, it.toLong()) })
             }
@@ -453,10 +453,10 @@ class TurboApp : Application() {
     suspend fun refreshDashboardCard(force: Boolean = false): String {
         val text = dashboardCardText()
         val now = System.currentTimeMillis()
-        if (!force && (text == lastCard || now - lastCardAt < 120_000)) return "Cartão já atualizado"
+        if (!force && (text == lastCard || now - lastCardAt < 120_000)) return "Thẻ đã được cập nhật"
         lastCardAt = now
         val outcome = dashboard.showCard(text)
-        if (outcome.startsWith("Cartão no painel")) lastCard = text
+        if (outcome.startsWith("Thẻ trên bảng")) lastCard = text
         if (outcome == org.turboio.customai.device.Dashboard.NOT_SUPPORTED && settings.dashboardCard) {
             settings.dashboardCard = false
             DiagnosticLog.i("PAINEL", "cartão automático desligado: não suportado por estes óculos")
@@ -472,7 +472,7 @@ class TurboApp : Application() {
 
     /** Pendências nas lentes, on demand (Diário → Pendências, or by voice). */
     suspend fun showPendingOnLens(): String? {
-        if (!session.isReady) return "Conecte os óculos"
+        if (!session.isReady) return "Hãy kết nối kính"
         val text = withContext(Dispatchers.IO) { listPending(System.currentTimeMillis(), null) }
         display.show(text, settings.displaySettings())
         return null
@@ -511,7 +511,7 @@ class TurboApp : Application() {
                     return try { transcriber.transcribe(pcm) } catch (e: SttException) {
                         // A Gemini/AI Studio key in the Google Cloud field is rejected ("API keys are not supported"):
                         // fall back to Gemini (the same kind of key) or Deepgram, whichever is configured.
-                        if (config.engine != SttEngine.GLASSES_GOOGLE || e.message?.contains("não serve para esta API") != true) throw e
+                        if (config.engine != SttEngine.GLASSES_GOOGLE || e.message?.contains("không dùng được cho API này") != true) throw e
                         when {
                             settings.hasApiKey(ProviderKind.GEMINI) -> { DiagnosticLog.w("STT", "chave recusada pelo Google Cloud; usando o Gemini"); gemini().transcribe(pcm) }
                             settings.hasDeepgramKey() -> { DiagnosticLog.w("STT", "chave recusada pelo Google Cloud; usando a Deepgram"); org.turboio.customai.stt.DeepgramSpeechTranscriber(config, settings.deepgramKey()).transcribe(pcm) }
@@ -531,7 +531,7 @@ class TurboApp : Application() {
         private val WEATHER_QUESTION = Regex("thời tiết|thoi tiet|mưa|nhiệt độ|nắng|nóng|lạnh|bão|độ ẩm|mang ô|áo mưa|weather|rain|temperature|chuv|chover|temperatura|clima|previs|\\btempo (hoje|amanh|agora|para|em|no|na)")
         lateinit var instance: TurboApp; private set
         fun friendly(e: Throwable): String = when (e) {
-            is AiException, is SttException -> e.message ?: "Erro"
+            is AiException, is SttException -> e.message ?: "Lỗi"
             else -> e.message ?: e.javaClass.simpleName
         }
     }

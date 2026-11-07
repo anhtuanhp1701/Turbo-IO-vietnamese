@@ -38,7 +38,7 @@ class DailyInsightWorker(context: Context, params: WorkerParameters) : Coroutine
             if (removed > 0) DiagnosticLog.i("DIARIO", "retenção: $removed dia(s) antigos apagados")
             if (app.journal.day(today).isEmpty()) return Result.success()
             val result = app.insights.day(today)
-            notify(app, result.insight.resumo.ifBlank { "Resumo do dia pronto." })
+            notify(app, result.insight.resumo.ifBlank { "Tóm tắt ngày đã sẵn sàng." })
             if (settings.lensDaily && app.session.isReady) app.display.show(result.insight.lens(), app.settings.displaySettings())
             DiagnosticLog.i("DIARIO", "resumo automático gerado (${result.windows} bloco(s))")
             Result.success()
@@ -52,11 +52,11 @@ class DailyInsightWorker(context: Context, params: WorkerParameters) : Coroutine
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
         val manager = context.getSystemService(NotificationManager::class.java)
-        manager.createNotificationChannel(NotificationChannel(CHANNEL, "Resumo do dia", NotificationManager.IMPORTANCE_DEFAULT))
+        manager.createNotificationChannel(NotificationChannel(CHANNEL, "Tóm tắt ngày", NotificationManager.IMPORTANCE_DEFAULT))
         val open = PendingIntent.getActivity(context, 1, Intent(context, MainActivity::class.java)
             .putExtra(MainActivity.EXTRA_TAB, "journal"), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         manager.notify(7393, NotificationCompat.Builder(context, CHANNEL).setSmallIcon(R.drawable.ic_glasses)
-            .setContentTitle("Resumo do seu dia").setContentText(text.take(120))
+            .setContentTitle("Tóm tắt ngày của bạn").setContentText(text.take(120))
             .setStyle(NotificationCompat.BigTextStyle().bigText(text.take(600)))
             .setContentIntent(open).setAutoCancel(true).build())
     }

@@ -181,7 +181,7 @@ class TeleprompterTest {
     @Test fun glassesExitWithCodeEndsSession() = runTest {
         val r = rig(); r.t.prepare("Texto", 120); runCurrent(); r.business(2); runCurrent()
         r.port.glasses(20, 6, """{"did":"${r.did}","action":2,"code":3}"""); runCurrent()
-        assertFalse(r.t.active); assertTrue(r.t.state.value.note.contains("código 3"))
+        assertFalse(r.t.active); assertTrue(r.t.state.value.note.contains("mã 3"))
     }
 
     @Test fun refusalPrematureSuccessAndTimeoutNeverUnlockStart() = runTest {
@@ -247,7 +247,7 @@ class TeleprompterTest {
     }
 
     @Test fun limitsBusyAndDisconnect() = runTest {
-        val port = FakePort(); var busy: String? = "O assistente de voz está em uso"
+        val port = FakePort(); var busy: String? = "Trợ lý giọng nói đang được dùng"
         val t = Teleprompter(port, this, fixedRandom, busy = { busy })
         assertEquals(busy, t.prepare("Texto", 120))
         busy = null

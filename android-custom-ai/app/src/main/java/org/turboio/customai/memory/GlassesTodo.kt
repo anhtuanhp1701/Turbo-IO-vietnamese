@@ -39,7 +39,7 @@ class GlassesTodoSync(
 
     init { port.addBusinessListener(this) }
 
-    /** Stable title (absolute date, not "hoje"/"amanhã"): a resend happens only when the item itself changes. */
+    /** Stable title (absolute date, not "hôm nay"/"ngày mai"): a resend happens only when the item itself changes. */
     fun title(i: Item): String {
         val due = i.dueAt?.let { Instant.ofEpochMilli(it).atZone(zone).format(DateTimeFormatter.ofPattern("dd/MM HH:mm")) } ?: ""
         val suffix = if (due.isNotBlank()) " · $due" else ""
@@ -126,7 +126,7 @@ class GlassesTodoSync(
             val item = s.itemByWire(wireId) ?: return@launch
             val now = clock()
             when {
-                status == 1 && item.status == ItemStatus.OPEN -> s.setStatus(item.id, ItemStatus.DONE, now, "concluída nos óculos")
+                status == 1 && item.status == ItemStatus.OPEN -> s.setStatus(item.id, ItemStatus.DONE, now, "đã xong trên kính")
                 status == 0 && item.status == ItemStatus.DONE -> s.setStatus(item.id, ItemStatus.OPEN, now)
                 else -> { s.setWire(item.id, wireId, status, null); return@launch }
             }

@@ -271,9 +271,9 @@ data class Candidate(val address: String, val name: String, val rssi: Int, val s
 object RayNeoModel {
     const val COMPANY = 0x5716
     private val NAMES = mapOf(1 to "RayNeo X2", 2 to "RayNeo V3", 3 to "RayNeo X3", 4 to "RayNeo V3 Slim", 5 to "RayNeo V4",
-        6 to "RayNeo iO", 7 to "RayNeo iO (internacional)")
+        6 to "RayNeo iO", 7 to "RayNeo iO (quốc tế)")
     fun isIo(type: Int?) = type == 6 || type == 7
-    fun name(type: Int?): String = when (type) { null -> "modelo não anunciado"; else -> NAMES[type] ?: "RayNeo tipo $type (desconhecido)" }
+    fun name(type: Int?): String = when (type) { null -> "không công bố model"; else -> NAMES[type] ?: "RayNeo loại $type (không rõ)" }
 }
 
 /** 15 s low-power scan filtered by the RayNeo 16-bit service (B81D) or name; never connects. */
@@ -284,9 +284,9 @@ class GlassesScanner(private val context: Context) {
 
     fun start(onUpdate: (List<Candidate>, Boolean) -> Unit): String? {
         stop()
-        val adapter = bluetoothAdapter(context) ?: return "Bluetooth indisponível neste aparelho"
-        if (!adapter.isEnabled) return "Ative o Bluetooth nas configurações do Android"
-        val scanner = adapter.bluetoothLeScanner ?: return "Scanner BLE indisponível"
+        val adapter = bluetoothAdapter(context) ?: return "Máy này không có Bluetooth"
+        if (!adapter.isEnabled) return "Hãy bật Bluetooth trong cài đặt Android"
+        val scanner = adapter.bluetoothLeScanner ?: return "Không dùng được trình quét BLE"
         val found = LinkedHashMap<String, Candidate>()
         val cb = object : ScanCallback() {
             override fun onScanResult(callbackType: Int, result: ScanResult) {
@@ -298,7 +298,7 @@ class GlassesScanner(private val context: Context) {
                 if (found.size >= 32 && !found.containsKey(result.device.address)) return
                 val previous = found[result.device.address]
                 val type = result.scanRecord?.getManufacturerSpecificData(RayNeoModel.COMPANY)?.firstOrNull()?.toInt()?.and(0xff)
-                found[result.device.address] = Candidate(result.device.address, name.ifEmpty { previous?.name ?: "RayNeo (sem nome)" },
+                found[result.device.address] = Candidate(result.device.address, name.ifEmpty { previous?.name ?: "RayNeo (không tên)" },
                     result.rssi, (previous?.serviceMatched ?: false) || (!info.malformed && info.hasRayNeoService), type ?: previous?.deviceType)
                 onUpdate(found.values.toList(), true)
             }
@@ -310,7 +310,7 @@ class GlassesScanner(private val context: Context) {
         callback = cb
         try {
             scanner.startScan(null, ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build(), cb)
-        } catch (_: SecurityException) { callback = null; return "Permissão de Bluetooth negada" }
+        } catch (_: SecurityException) { callback = null; return "Quyền Bluetooth bị từ chối" }
         main.postDelayed({ if (callback === cb) { stop(); onUpdate(found.values.toList(), false) } }, 15000)
         DiagnosticLog.i("BLE", "scan iniciado (15 s)")
         return null

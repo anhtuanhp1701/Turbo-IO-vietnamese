@@ -93,7 +93,7 @@ class ProviderTest {
         val e = assertThrows(AiException::class.java) {
             ProviderCodec.parse(ProviderKind.OPENAI, HttpResult(401, """{"error":{"message":"Incorrect API key provided: sk-test-SECRET-1234567890."}}"""))
         }
-        assertTrue(e.message!!.contains("Chave de API inválida")); assertTrue(e.message!!.contains("HTTP 401"))
+        assertTrue(e.message!!.contains("Khóa API không hợp lệ")); assertTrue(e.message!!.contains("HTTP 401"))
         assertFalse(e.message!!.contains("SECRET"))
         assertTrue(assertThrows(AiException::class.java) { ProviderCodec.parse(ProviderKind.ANTHROPIC, HttpResult(429, """{"type":"error","error":{"type":"rate_limit_error","message":"slow down"}}""")) }
             .message!!.contains("cota"))
@@ -132,7 +132,7 @@ class ProviderTest {
         val transport = FakeTransport(body = """{"choices":[{"message":{"content":"tarde"}}]}""", delayMs = 7000)
         val started = System.currentTimeMillis()
         val e = runCatching { AiClient(transport).ask(AiConfig(ProviderKind.OPENAI, timeoutSeconds = 5), key, emptyList(), "Oi") }.exceptionOrNull()
-        assertTrue(e is AiException && e.message!!.contains("Tempo máximo"))
+        assertTrue(e is AiException && e.message!!.contains("Thời gian chờ"))
         assertTrue(System.currentTimeMillis() - started < 6900)
     }
 

@@ -30,7 +30,7 @@ class SettingsRepository(context: Context) {
             maxTokens = prefs.getInt("ai.maxTokens", 800),
             timeoutSeconds = prefs.getInt("ai.timeout", 30),
             historyTurns = prefs.getInt("ai.history", 3),
-            webSearch = prefs.getBoolean("ai.webSearch", true),
+            webSearch = prefs.getBoolean("ai.webSearch", false),
         )
     }
 

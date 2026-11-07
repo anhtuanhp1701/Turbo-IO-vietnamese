@@ -78,6 +78,11 @@ class AiClient(private val transport: HttpTransport = UrlConnectionTransport()) 
         }
         val latency = (System.nanoTime() - started) / 1_000_000
         DiagnosticLog.i("AI", "HTTP ${result.status} em ${latency} ms, ${result.body.length} caracteres")
+        // Web search (Google Search grounding) is not part of the free tier: a quota refusal is retried once without it.
+        if ((result.status == 429 || result.status == 403) && config.webSearch) {
+            DiagnosticLog.w("AI", "HTTP ${result.status} com busca na web; repetindo sem a busca")
+            return ask(config.copy(webSearch = false), apiKey, history, question, audioWav)
+        }
         val parsed = try { ProviderCodec.parse(config.provider, result) } catch (e: AiException) {
             DiagnosticLog.w("AI", e.message ?: "lỗi"); throw e
         }

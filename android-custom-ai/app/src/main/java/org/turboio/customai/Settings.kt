@@ -101,6 +101,8 @@ class SettingsRepository(context: Context) {
     fun ttsOpenAiKey(): String = sttKey(SttEngine.GLASSES_OPENAI)
 
     fun interpreterSettings(): org.turboio.customai.translate.InterpreterSettings = org.turboio.customai.translate.InterpreterSettings(
+        engine = org.turboio.customai.translate.InterpreterEngine.fromId(prefs.getString("interp.engine", null)),
+        liveModel = prefs.getString("interp.liveModel", "") ?: "",
         myLanguage = prefs.getString("interp.my", null) ?: "vi-VN",
         partnerLanguage = prefs.getString("interp.partner", null) ?: "en-US",
         source = org.turboio.customai.translate.InterpreterSource.fromId(prefs.getString("interp.source", null)),
@@ -113,7 +115,7 @@ class SettingsRepository(context: Context) {
     )
 
     fun saveInterpreter(s: org.turboio.customai.translate.InterpreterSettings) {
-        prefs.edit().putString("interp.my", s.myLanguage).putString("interp.partner", s.partnerLanguage).putString("interp.source", s.source.id)
+        prefs.edit().putString("interp.engine", s.engine.id).putString("interp.liveModel", s.liveModel.trim()).putString("interp.my", s.myLanguage).putString("interp.partner", s.partnerLanguage).putString("interp.source", s.source.id)
             .putString("interp.provider", s.provider.id).putString("interp.model", s.model.trim()).putBoolean("interp.speakPartner", s.speakToPartner)
             .putBoolean("interp.speakMe", s.speakToMe).putBoolean("interp.lens", s.showOnLens).putInt("interp.silence", s.silenceMs).apply()
     }

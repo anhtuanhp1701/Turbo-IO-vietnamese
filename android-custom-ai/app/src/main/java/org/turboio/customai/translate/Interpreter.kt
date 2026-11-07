@@ -53,6 +53,12 @@ object Languages {
     fun same(a: String, b: String) = a.isNotBlank() && b.isNotBlank() && a.substringBefore('-').equals(b.substringBefore('-'), ignoreCase = true)
 }
 
+enum class InterpreterEngine(val id: String, val label: String) {
+    LIVE("live", "Trực tiếp (Gemini Live Translate) – dịch ngay khi đang nói, giọng tự nhiên"),
+    SENTENCE("sentence", "Từng câu – chờ hết câu rồi dịch (dùng được mọi model)");
+    companion object { fun fromId(id: String?) = entries.firstOrNull { it.id == id } ?: LIVE }
+}
+
 enum class InterpreterSource(val id: String, val label: String) {
     GLASSES("glasses", "Mic của kính (khuyên dùng)"),
     PHONE("phone", "Mic của điện thoại");
@@ -60,6 +66,9 @@ enum class InterpreterSource(val id: String, val label: String) {
 }
 
 data class InterpreterSettings(
+    val engine: InterpreterEngine = InterpreterEngine.LIVE,
+    /** Live engine model; empty = [LiveWire.DEFAULT_MODEL]. */
+    val liveModel: String = "",
     val myLanguage: String = "vi-VN",
     val partnerLanguage: String = "en-US",
     val source: InterpreterSource = InterpreterSource.GLASSES,
@@ -170,6 +179,8 @@ class Interpreter(private val app: TurboApp) : FrameSink {
     private var queue = newQueue()
     private var worker: Job? = null
     @Volatile private var settings = InterpreterSettings()
+    /** Live engine (streaming); null in sentence mode. */
+    @Volatile private var live: LiveInterpreter? = null
 
     val running: Boolean get() = source != null
 
@@ -180,8 +191,10 @@ class Interpreter(private val app: TurboApp) : FrameSink {
     @Synchronized fun start(): String? {
         if (running) return null
         val s = app.settings.interpreterSettings().also { settings = it }
-        if (!app.settings.hasApiKey(s.provider)) return "Chưa có khóa API cho ${s.provider.label} (tab AI)"
-        if (s.provider != ProviderKind.GEMINI && app.settings.sttKey(SttEngine.GLASSES_OPENAI).isEmpty() && !app.settings.hasApiKey(ProviderKind.GEMINI))
+        val liveMode = s.engine == InterpreterEngine.LIVE
+        if (liveMode && !app.settings.hasApiKey(ProviderKind.GEMINI)) return "Chế độ trực tiếp cần khóa Gemini (tab AI)"
+        if (!liveMode && !app.settings.hasApiKey(s.provider)) return "Chưa có khóa API cho ${s.provider.label} (tab AI)"
+        if (!liveMode && s.provider != ProviderKind.GEMINI && app.settings.sttKey(SttEngine.GLASSES_OPENAI).isEmpty() && !app.settings.hasApiKey(ProviderKind.GEMINI))
             return "Với ${s.provider.label}, cần thêm khóa OpenAI hoặc Gemini để chép lời"
         val src: AudioSource = when (s.source) {
             InterpreterSource.GLASSES -> {
@@ -190,7 +203,8 @@ class Interpreter(private val app: TurboApp) : FrameSink {
                 if (app.ambient.usesGlasses) return "Kính đang ghi âm môi trường; hãy dừng ghi âm trước"
                 LifeLogSource(app.session, app.scope, org.turboio.customai.probe.PrefsPendingFlag(app), app.random, realtime = true,
                     keepGuide = { app.settings.ambientSettings().glassesMenu },
-                    onEnded = { reason -> app.scope.launch { stop("Kính đã dừng gửi âm thanh ($reason)") } }).also { lifeLog = it }
+                    onEnded = { reason -> app.scope.launch { stop("Kính đã dừng gửi âm thanh ($reason)") } },
+                    batchMs = if (liveMode) 240 else 1000).also { lifeLog = it }
             }
             InterpreterSource.PHONE -> {
                 if (ContextCompat.checkSelfPermission(app, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED)
@@ -202,9 +216,14 @@ class Interpreter(private val app: TurboApp) : FrameSink {
         queue = newQueue()
         val q = queue
         worker = app.scope.launch(Dispatchers.IO) { for (pcm in q) process(pcm) }
+        if (liveMode) {
+            live = LiveInterpreter(app, s, app.settings.apiKey(ProviderKind.GEMINI), liveEvents).also { it.start() }
+            if (s.showOnLens && app.session.isReady) app.display.liveStart(app.settings.displaySettings())
+        }
         source = src
         try { src.start(this) } catch (e: Exception) {
             source = null; lifeLog = null; worker?.cancel(); q.close()
+            live?.stop(); live = null; app.display.liveStop()
             return "Không mở được micro: ${e.message ?: e.javaClass.simpleName}"
         }
         val me = Languages.of(s.myLanguage).label; val them = Languages.of(s.partnerLanguage).label
@@ -218,6 +237,7 @@ class Interpreter(private val app: TurboApp) : FrameSink {
         source = null
         runCatching { src.stop() }
         queue.close(); worker = null
+        live?.let { it.stop(); live = null; app.display.liveStop() }
         update { it.copy(running = false, note = note) }
         DiagnosticLog.i("DICH", note)
     }
@@ -233,6 +253,18 @@ class Interpreter(private val app: TurboApp) : FrameSink {
 
     @Synchronized override fun frames(batch: OpusBatch) {
         if (!running) return
+        live?.let { l ->
+            // Live: keep the stream continuous, but send silence while our own translation plays (no echo loop).
+            val grace = if (settings.source == InterpreterSource.GLASSES) 1200L else 300L
+            val mute = l.gated(grace) || app.voice.busy
+            for (frame in batch.frames) {
+                val samples = runCatching { decoder.decode(frame) }.getOrNull() ?: continue
+                val bytes = ByteArray(samples.size * 2)
+                if (!mute) for (i in samples.indices) { bytes[2 * i] = (samples[i].toInt() and 0xff).toByte(); bytes[2 * i + 1] = (samples[i].toInt() shr 8).toByte() }
+                l.feed(bytes)
+            }
+            return
+        }
         // Ignore our own voice: while a translation plays, and briefly after (glasses audio arrives ~1 s late).
         val grace = if (settings.source == InterpreterSource.GLASSES) 1500 else 500
         if (app.speaker.speaking || System.currentTimeMillis() - app.speaker.lastEndedAt < grace || app.voice.busy) { segmenter.reset(); return }
@@ -243,6 +275,25 @@ class Interpreter(private val app: TurboApp) : FrameSink {
     }
 
     @Synchronized override fun gap(reason: String) { segmenter.reset(); decoder.reset() }
+
+    private val liveEvents = object : LiveInterpreter.Events {
+        override fun caption(fromMe: Boolean, heard: String, translation: String, final: Boolean) {
+            val s = settings
+            if (s.showOnLens) app.display.liveText((if (fromMe) "➜ " else "") + LiveWire.tail(translation, 80), final)
+            if (final) {
+                val line = InterpreterLine(System.currentTimeMillis(), fromMe, heard.ifBlank { "…" }, translation,
+                    if (fromMe) s.myLanguage else s.partnerLanguage)
+                update { it.copy(lines = (it.lines + line).takeLast(60), note = "Đang nghe…") }
+            } else {
+                update { it.copy(note = (if (fromMe) "Bạn ➜ " else "Đối phương ➜ ") + LiveWire.tail(translation, 70)) }
+            }
+        }
+        override fun note(text: String) = update { it.copy(note = text) }
+        override fun failed(reason: String) {
+            update { it.copy(lastError = reason) }
+            app.scope.launch { stop("Lỗi: $reason") }
+        }
+    }
 
     private suspend fun process(pcm: ByteArray) {
         val s = settings

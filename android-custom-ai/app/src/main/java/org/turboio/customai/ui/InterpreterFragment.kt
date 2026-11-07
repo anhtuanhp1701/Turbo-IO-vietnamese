@@ -18,7 +18,9 @@ import com.google.android.material.textfield.TextInputEditText
 import kotlinx.coroutines.launch
 import org.turboio.customai.TurboApp
 import org.turboio.customai.ai.ProviderKind
+import org.turboio.customai.translate.InterpreterEngine
 import org.turboio.customai.translate.InterpreterSettings
+import org.turboio.customai.translate.LiveWire
 import org.turboio.customai.translate.InterpreterSource
 import org.turboio.customai.translate.InterpreterState
 import org.turboio.customai.translate.Languages
@@ -34,6 +36,7 @@ class InterpreterFragment : Fragment() {
     private lateinit var conversation: TextView
     private lateinit var model: TextInputEditText
     private lateinit var modelHint: TextView
+    private lateinit var liveModel: TextInputEditText
     private val micPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) startNow() else toast("Cần quyền micro để dùng mic điện thoại")
     }
@@ -45,6 +48,14 @@ class InterpreterFragment : Fragment() {
         val g0 = ui.card()
         status = g0.text("", size = 15f)
         g0.buttons("Bắt đầu" to { start() }, "Dừng" to { app.interpreter.stop() }, "Xóa" to { app.interpreter.clear() })
+
+        ui.section("Chế độ dịch")
+        val ge = ui.card()
+        val engines = InterpreterEngine.entries.toList()
+        ge.spinner(engines, engines.indexOf(s.engine), { it.label }) { save(s.copy(engine = it)) }
+        liveModel = ge.field("Model dịch trực tiếp (để trống = ${LiveWire.DEFAULT_MODEL})", s.liveModel)
+        ge.hint("Trực tiếp: giống phụ đề của app gốc – âm thanh được gửi liên tục, chữ dịch hiện ngay trên kính khi người kia còn đang nói " +
+            "và giọng dịch phát gần như cùng lúc. Chỉ cần khóa Gemini. Nếu khóa của bạn chưa dùng được model này, app sẽ báo; khi đó chọn “Từng câu”.")
 
         ui.section("Hội thoại")
         val g1 = ui.card()
@@ -65,10 +76,11 @@ class InterpreterFragment : Fragment() {
         g3.switch("Đọc lời tôi đã dịch ra loa điện thoại (cho người đối diện nghe)", s.speakToPartner) { save(s.copy(speakToPartner = it)) }
         g3.switch("Đọc lời người đối diện đã dịch vào tai nghe của tôi", s.speakToMe) { save(s.copy(speakToMe = it)) }
         val pauses = listOf(600 to "Ngắn (0,6 giây)", 800 to "Vừa (0,8 giây)", 1200 to "Dài (1,2 giây)")
-        g3.spinner(pauses, pauses.indexOfFirst { it.first == s.silenceMs }.coerceAtLeast(1), { "Ngắt câu khi im lặng: ${it.second}" }) { save(s.copy(silenceMs = it.first)) }
-        g3.hint("Giọng đọc dùng cài đặt ở tab AI → “Đọc câu trả lời qua tai nghe”. Khi app đang đọc, micro tạm bỏ qua âm thanh để không tự dịch lại giọng của chính nó.")
+        g3.spinner(pauses, pauses.indexOfFirst { it.first == s.silenceMs }.coerceAtLeast(1), { "Từng câu – ngắt câu khi im lặng: ${it.second}" }) { save(s.copy(silenceMs = it.first)) }
+        g3.hint("Chế độ trực tiếp dùng giọng dịch của Gemini Live; chế độ từng câu dùng giọng ở tab AI. Khi đang phát bản dịch, micro tạm gửi im lặng để app không tự dịch lại giọng của chính nó. " +
+            "Nếu không đeo tai nghe, nên tắt “đọc vào tai nghe” để loa điện thoại không lẫn hai giọng.")
 
-        ui.section("Model AI dùng để dịch")
+        ui.section("Model AI cho chế độ từng câu")
         val g4 = ui.card()
         val providers = ProviderKind.entries.toList()
         g4.spinner(providers, providers.indexOf(s.provider), { it.label }) { save(s.copy(provider = it)); loadModel() }
@@ -110,7 +122,8 @@ class InterpreterFragment : Fragment() {
 
     private fun startNow() {
         val chosen = model.text.toString().trim()
-        if (chosen != s.model) save(s.copy(model = chosen))
+        val chosenLive = liveModel.text.toString().trim()
+        if (chosen != s.model || chosenLive != s.liveModel) save(s.copy(model = chosen, liveModel = chosenLive))
         app.interpreter.start()?.let { toast(it) }
     }
 

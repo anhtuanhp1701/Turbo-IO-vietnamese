@@ -36,6 +36,8 @@ class LifeLogSource(
     private val keepGuide: () -> Boolean = { false },
     private val onEnded: (String) -> Unit = {},
     private val clock: () -> Long = System::currentTimeMillis,
+    /** Realtime batches are handed over every [batchMs] (1 s for the journal; shorter for live translation). */
+    private val batchMs: Int = BATCH_MS,
 ) : AudioSource, BusinessListener {
     override val id = "glasses_lifelog"
     override val providesWearer = true
@@ -153,7 +155,7 @@ class LifeLogSource(
             vpu.add(json?.let { bit(it, "vpuMask", i) } ?: false)
         }
         framesReceived += frames.size
-        if (cached || buffer.size * frameMs >= BATCH_MS) flush()
+        if (cached || buffer.size * frameMs >= batchMs) flush()
     }
 
     private fun bit(json: JSONObject, key: String, i: Int): Boolean = (json.optLong(key, 0L) ushr i) and 1L == 1L

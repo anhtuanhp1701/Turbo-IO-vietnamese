@@ -100,6 +100,73 @@ class LensDisplay(
 
     fun stop() { scope.launch { job?.cancel(); closeSession() } }
 
+    // ---------------------------------------------------------------- live captions (interpreter)
+
+    @Volatile private var livePending: Pair<String, Boolean>? = null
+    private var liveJob: Job? = null
+    private var liveFormat = "legacy"
+    val liveActive: Boolean get() = liveJob?.isActive == true
+
+    /**
+     * Live captions like the official app: one caption session stays open and its text is replaced in place while
+     * the sentence forms (status 0) and when it is final (status 1), at most ~3 updates per second. The session is
+     * reopened if the glasses close it. Safe from any thread.
+     */
+    fun liveStart(settings: DisplaySettings) {
+        scope.launch {
+            job?.cancel(); liveJob?.cancel()
+            livePending = null
+            liveJob = scope.launch { liveLoop(settings) }
+        }
+    }
+
+    /** Latest caption; only the newest value is sent. */
+    fun liveText(text: String, final: Boolean) { livePending = text to final }
+
+    fun liveStop() { scope.launch { liveJob?.cancel(); liveJob = null; livePending = null; closeSession() } }
+
+    private suspend fun liveOpen(settings: DisplaySettings): Boolean {
+        if (sid.isNotEmpty()) closeSession()
+        val format = settings.textFormat
+        if (Commands.isSession(format)) {
+            saveLayout(settings)
+            if (startSession()) { liveFormat = Commands.sessionTextFormat(format); return true }
+            DiagnosticLog.w("LENS", "phụ đề trực tiếp: phiên phụ đề không mở; dùng định dạng cũ")
+        }
+        if (openPreview(settings) == null) { liveFormat = if (Commands.isSession(format)) "legacy" else format; return true }
+        return false
+    }
+
+    private suspend fun liveLoop(settings: DisplaySettings) {
+        var opened = false
+        var lastSent = ""
+        var lastSentAt = 0L
+        var failures = 0
+        while (true) {
+            if (!port.isReady) { opened = false; delay(1_000); continue }
+            if (!opened || closedByGlasses || sid.isEmpty()) {
+                if (failures >= 3) { DiagnosticLog.w("LENS", "phụ đề trực tiếp: kính không mở phiên sau 3 lần thử"); return }
+                opened = liveOpen(settings)
+                if (!opened) { failures++; delay(2_000); continue }
+                failures = 0; lastSent = ""
+                delay(300)
+            }
+            val p = livePending
+            val now = System.currentTimeMillis()
+            // Older formats need the text repeated to stay on the lenses.
+            val refresh = liveFormat == "legacy" && lastSent.isNotEmpty() && now - lastSentAt > 2_000
+            if ((p != null && p.first != lastSent) || refresh) {
+                if (p != null) livePending = null
+                val value = p?.first ?: lastSent
+                val text = DisplayText.clean(value, settings.stripAccents)
+                port.sendEnvelope(Business.SUBTITLE, 5, Commands.displayText(sid, text, liveFormat, p?.second ?: true))
+                    ?.let { DiagnosticLog.w("LENS", "phụ đề trực tiếp: gửi thất bại ($it)"); opened = false }
+                lastSent = value; lastSentAt = now
+            } else if (p != null) livePending = null
+            delay(300)
+        }
+    }
+
     private suspend fun run(raw: String, settings: DisplaySettings): String? {
         if (!port.isReady) return fail("Chưa kết nối kính")
         val text = DisplayText.clean(raw, settings.stripAccents)

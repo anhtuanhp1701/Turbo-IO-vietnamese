@@ -15,8 +15,8 @@ android {
         applicationId = "org.turboio.customai"
         minSdk = 26
         targetSdk = 35
-        versionCode = 12
-        versionName = "0.5.3-vi"
+        versionCode = 13
+        versionName = "0.6.0-vi"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -51,6 +51,8 @@ dependencies {
     implementation("io.github.jaredmdobson:concentus:1.0.2")
     // Daily insight schedule (and, in phase 2, the transcription queue).
     implementation("androidx.work:work-runtime-ktx:2.10.1")
+    // WebSocket client for Gemini Live Translate (streaming interpreter).
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")

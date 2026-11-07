@@ -75,10 +75,13 @@ class InterpreterFragment : Fragment() {
         ui.section("Ngôn ngữ")
         val g2 = ui.card()
         val langs = Languages.ALL
-        g2.spinner(langs, langs.indexOfFirst { it.tag == s.myLanguage }.coerceAtLeast(0), { "Tôi nói: ${it.label}" }) { save(s.copy(myLanguage = it.tag)) }
-        g2.spinner(langs, langs.indexOfFirst { it.tag == s.partnerLanguage }.coerceAtLeast(1), { "Người đối diện nói: ${it.label}" }) { save(s.copy(partnerLanguage = it.tag)) }
-        g2.hint("App tự nhận ra ai đang nói theo ngôn ngữ: câu bằng ngôn ngữ của bạn được dịch sang ngôn ngữ người đối diện, " +
-            "mọi ngôn ngữ khác được dịch sang ngôn ngữ của bạn.")
+        g2.switch("Chế độ nghe: tự nhận mọi ngôn ngữ, dịch sang tiếng của tôi", s.listenMode) { save(s.copy(listenMode = it)) }
+        g2.switch("Ghi nhãn người nói (A:, B:…) khi có nhiều người", s.labelSpeakers) { save(s.copy(labelSpeakers = it)) }
+        g2.spinner(langs, langs.indexOfFirst { it.tag == s.myLanguage }.coerceAtLeast(0), { "Tôi nói / dịch sang: ${it.label}" }) { save(s.copy(myLanguage = it.tag)) }
+        g2.spinner(langs, langs.indexOfFirst { it.tag == s.partnerLanguage }.coerceAtLeast(1), { "Người đối diện (chế độ 2 chiều): ${it.label}" }) { save(s.copy(partnerLanguage = it.tag)) }
+        g2.hint("Chế độ nghe (khuyên dùng): bật sẵn, bạn chỉ cần chọn “dịch sang tiếng Việt”. Soniox tự nhận ra người kia nói tiếng Trung, " +
+            "Anh hay xen lẫn, rồi dịch hết sang tiếng Việt; câu bạn nói không hiện. Tắt chế độ nghe để dịch 2 chiều: " +
+            "lời bạn được dịch sang ngôn ngữ người đối diện và đọc ra loa, lời họ dịch sang tiếng bạn.")
 
         ui.section("Âm thanh")
         val g3 = ui.card()

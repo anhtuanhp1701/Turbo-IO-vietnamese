@@ -117,6 +117,8 @@ class SettingsRepository(context: Context) {
         speakToMe = prefs.getBoolean("interp.speakMe", true),
         showOnLens = prefs.getBoolean("interp.lens", true),
         silenceMs = prefs.getInt("interp.silence", 800).coerceIn(400, 2000),
+        listenMode = prefs.getBoolean("interp.listen", true),
+        labelSpeakers = prefs.getBoolean("interp.labels", true),
     )
 
     fun saveInterpreter(s: org.turboio.customai.translate.InterpreterSettings) {
@@ -124,7 +126,8 @@ class SettingsRepository(context: Context) {
             .putString("interp.sonioxModel", s.sonioxModel.trim()).putString("interp.context", s.contextText.take(4000))
             .putString("interp.glossary", s.glossary.take(20000)).putBoolean("interp.refine", s.refine).putString("interp.refineModel", s.refineModel.trim()).putString("interp.my", s.myLanguage).putString("interp.partner", s.partnerLanguage).putString("interp.source", s.source.id)
             .putString("interp.provider", s.provider.id).putString("interp.model", s.model.trim()).putBoolean("interp.speakPartner", s.speakToPartner)
-            .putBoolean("interp.speakMe", s.speakToMe).putBoolean("interp.lens", s.showOnLens).putInt("interp.silence", s.silenceMs).apply()
+            .putBoolean("interp.speakMe", s.speakToMe).putBoolean("interp.lens", s.showOnLens).putInt("interp.silence", s.silenceMs)
+            .putBoolean("interp.listen", s.listenMode).putBoolean("interp.labels", s.labelSpeakers).apply()
     }
 
     fun voiceSettings(): VoiceSettings = VoiceSettings(

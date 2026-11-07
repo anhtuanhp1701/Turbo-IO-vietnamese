@@ -23,6 +23,22 @@ class SonioxTest {
         assertTrue(c.getBoolean("enable_endpoint_detection"))
     }
 
+    @Test fun listenModeIsOneWayIntoMyLanguageWithBroadHints() {
+        val c = JSONObject(SonioxWire.config("", "vi-VN", "zh-CN", "", "", 800, listenMode = true))
+        val t = c.getJSONObject("translation")
+        assertEquals("one_way", t.getString("type")); assertEquals("vi", t.getString("target_language"))
+        val hints = c.getJSONArray("language_hints").let { a -> (0 until a.length()).map { a.getString(it) } }
+        assertTrue(hints.containsAll(listOf("zh", "en", "vi")))
+        assertTrue(c.getBoolean("enable_speaker_diarization"))
+    }
+
+    @Test fun utterancesCarrySpeaker() {
+        val u = SonioxUtterances()
+        u.accept(listOf(SonioxWire.Token("你好", true, false, "zh", "2")))
+        val ended = u.accept(listOf(SonioxWire.Token("Xin chào", true, true, "vi", "2"), SonioxWire.Token("<end>", true, false, "", "2"))).first { it.ended }
+        assertEquals("2", ended.speaker); assertEquals("你好", ended.original); assertEquals("Xin chào", ended.translation)
+    }
+
     private fun tok(text: String, final: Boolean, tr: Boolean = false, lang: String = "zh") = SonioxWire.Token(text, final, tr, lang, "1")
 
     @Test fun utterancesStreamThenEndAtEndpoint() {

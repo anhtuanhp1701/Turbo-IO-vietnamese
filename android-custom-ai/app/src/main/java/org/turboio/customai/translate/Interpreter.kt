@@ -93,6 +93,10 @@ data class InterpreterSettings(
     val showOnLens: Boolean = true,
     /** Pause that ends a sentence. */
     val silenceMs: Int = 800,
+    /** Listen mode: auto-detect whatever language the others speak and translate it into my language. */
+    val listenMode: Boolean = true,
+    /** Prefix each line with "A:", "B:"… once more than one person has spoken. */
+    val labelSpeakers: Boolean = true,
 )
 
 data class InterpreterLine(val at: Long, val fromMe: Boolean, val heard: String, val translation: String, val language: String)

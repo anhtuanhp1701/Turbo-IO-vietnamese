@@ -58,23 +58,32 @@ object SonioxWire {
         return terms.distinct().take(300) to pairs.take(300)
     }
 
-    fun config(model: String, my: String, partner: String, contextText: String, glossary: String, endpointDelayMs: Int): String {
+    fun config(model: String, my: String, partner: String, contextText: String, glossary: String, endpointDelayMs: Int,
+               listenMode: Boolean = false): String {
         val (terms, pairs) = glossary(glossary)
         val context = JSONObject()
         if (contextText.isNotBlank()) context.put("text", contextText.take(4000))
         context.put("general", JSONArray().put(JSONObject().put("key", "setting").put("value", "face-to-face conversation")))
         if (terms.isNotEmpty()) context.put("terms", JSONArray(terms))
         if (pairs.isNotEmpty()) context.put("translation_terms", JSONArray(pairs.map { JSONObject().put("source", it.first).put("target", it.second) }))
+        // Listen mode: Soniox identifies whatever is spoken and translates it into my language; the hints
+        // only bias towards likely languages (Chinese, English and the two configured ones).
+        val hints = LinkedHashSet<String>().apply {
+            if (listenMode) { add("zh"); add("en") }
+            add(code(my)); add(code(partner))
+        }
+        val translation = if (listenMode) JSONObject().put("type", "one_way").put("target_language", code(my))
+            else JSONObject().put("type", "two_way").put("language_a", code(my)).put("language_b", code(partner))
         return JSONObject()
             .put("model", model.ifBlank { DEFAULT_MODEL })
             .put("audio_format", "pcm_s16le").put("sample_rate", 16000).put("num_channels", 1)
-            .put("language_hints", JSONArray().put(code(my)).put(code(partner)))
+            .put("language_hints", JSONArray(hints.toList()))
             .put("enable_language_identification", true)
             .put("enable_speaker_diarization", true)
             .put("enable_endpoint_detection", true)
             .put("max_endpoint_delay_ms", endpointDelayMs.coerceIn(500, 3000))
             .put("context", context)
-            .put("translation", JSONObject().put("type", "two_way").put("language_a", code(my)).put("language_b", code(partner)))
+            .put("translation", translation)
             .toString()
     }
 
@@ -100,12 +109,14 @@ object SonioxWire {
  * an `<end>` (endpoint) or `<fin>` (finalize) token closes the utterance. Pure, unit-tested.
  */
 class SonioxUtterances {
-    data class Update(val original: String, val translation: String, val language: String, val ended: Boolean)
+    data class Update(val original: String, val translation: String, val language: String, val ended: Boolean, val speaker: String = "")
 
     private val finalOriginal = StringBuilder()
     private val finalTranslation = StringBuilder()
     private val languages = HashMap<String, Int>()
+    private val speakers = HashMap<String, Int>()
     private var liveLanguage = ""
+    private var liveSpeaker = ""
 
     fun accept(tokens: List<SonioxWire.Token>): List<Update> {
         val out = mutableListOf<Update>()
@@ -118,10 +129,14 @@ class SonioxUtterances {
             }
             if (t.final) {
                 if (t.translation) finalTranslation.append(t.text)
-                else { finalOriginal.append(t.text); if (t.language.isNotEmpty()) languages.merge(t.language, t.text.length, Int::plus) }
+                else {
+                    finalOriginal.append(t.text)
+                    if (t.language.isNotEmpty()) languages.merge(t.language, t.text.length, Int::plus)
+                    if (t.speaker.isNotEmpty()) speakers.merge(t.speaker, t.text.length, Int::plus)
+                }
             } else {
                 if (t.translation) liveTranslation.append(t.text)
-                else { liveOriginal.append(t.text); if (t.language.isNotEmpty()) liveLanguage = t.language }
+                else { liveOriginal.append(t.text); if (t.language.isNotEmpty()) liveLanguage = t.language; if (t.speaker.isNotEmpty()) liveSpeaker = t.speaker }
             }
         }
         if (liveOriginal.isNotEmpty() || liveTranslation.isNotEmpty() || (tokens.isNotEmpty() && finalOriginal.isNotBlank()))
@@ -131,9 +146,10 @@ class SonioxUtterances {
 
     private fun current(ended: Boolean, liveOriginal: String, liveTranslation: String) = Update(
         (finalOriginal.toString() + liveOriginal).trim(), (finalTranslation.toString() + liveTranslation).trim(),
-        languages.maxByOrNull { it.value }?.key ?: liveLanguage, ended)
+        languages.maxByOrNull { it.value }?.key ?: liveLanguage, ended,
+        speakers.maxByOrNull { it.value }?.key ?: liveSpeaker)
 
-    private fun reset() { finalOriginal.setLength(0); finalTranslation.setLength(0); languages.clear(); liveLanguage = "" }
+    private fun reset() { finalOriginal.setLength(0); finalTranslation.setLength(0); languages.clear(); speakers.clear(); liveLanguage = ""; liveSpeaker = "" }
 }
 
 /**
@@ -167,7 +183,7 @@ class SonioxInterpreter(
         socket = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 webSocket.send(SonioxWire.config(settings.sonioxModel, settings.myLanguage, settings.partnerLanguage,
-                    settings.contextText, settings.glossary, settings.silenceMs))
+                    settings.contextText, settings.glossary, settings.silenceMs, settings.listenMode))
                 ready = true; failures = 0
                 DiagnosticLog.i("DICH", "Soniox: phiên mở (${SonioxWire.code(settings.myLanguage)}⇄${SonioxWire.code(settings.partnerLanguage)})")
                 events.note("Đang nghe · nói chuyện bình thường")
@@ -200,18 +216,28 @@ class SonioxInterpreter(
             if (u.original.isEmpty() && u.translation.isEmpty()) continue
             val fromMe = if (u.language.isNotEmpty()) Languages.same(u.language, settings.myLanguage)
                 else Languages.same(org.turboio.customai.tts.SpeechText.guessLanguage(u.original, settings.partnerLanguage), settings.myLanguage)
-            if (!u.ended) { events.caption(fromMe, u.original, u.translation, false); continue }
-            finishSentence(fromMe, u.original, u.translation)
+            // Listen mode: everyone but me is a "partner" heard in Vietnamese; my own speech isn't translated.
+            if (settings.listenMode && fromMe) { if (!u.ended) events.caption(true, u.original, "", false); continue }
+            val label = speakerLabel(u.speaker)
+            if (!u.ended) { events.caption(fromMe, label + u.original, label + u.translation, false); continue }
+            finishSentence(fromMe, u.original, u.translation, label)
         }
     }
 
-    private fun finishSentence(fromMe: Boolean, original: String, draft: String) {
+    private val speakerLabels = LinkedHashMap<String, String>()
+    private fun speakerLabel(speaker: String): String {
+        if (!settings.labelSpeakers || speaker.isEmpty()) return ""
+        speakerLabels.getOrPut(speaker) { ('A' + speakerLabels.size.coerceAtMost(25)).toString() }
+        return if (speakerLabels.size >= 2) speakerLabels[speaker] + ": " else ""
+    }
+
+    private fun finishSentence(fromMe: Boolean, original: String, draft: String, label: String = "") {
         scope.launch {
             val target = if (fromMe) settings.partnerLanguage else settings.myLanguage
             val translation = if (settings.refine && original.length >= 2) refine(original, draft, fromMe) ?: draft else draft
             if (translation.isBlank()) return@launch
             synchronized(history) { history.addLast(original to translation); while (history.size > 8) history.removeFirst() }
-            events.caption(fromMe, original, translation, true)
+            events.caption(fromMe, label + original, label + translation, true)
             if (fromMe && settings.speakToPartner) app.speaker.speak(translation, queue = true, loudspeaker = true, language = target)
             if (!fromMe && settings.speakToMe) app.speaker.speak(translation, queue = true, loudspeaker = false, language = target)
         }
